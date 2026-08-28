@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Qlyx",
+  "version": "1.0.0",
+  "description": "Routes structured assistant response blocks to the local Qlyx automation server.",
+  "minimum_chrome_version": "116",
+  "permissions": ["contextMenus", "storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://chat.deepseek.com/*",
+    "https://chat.qwen.ai/*",
+    "https://kimi.ai/*",
+    "https://www.kimi.ai/*",
+    "https://kimi.com/*",
+    "https://www.kimi.com/*",
+    "https://kimi.moonshot.cn/*"
+  ],
+  "background": {
+    "service_worker": "dist/worker.js"
+  },
+  "action": {
+    "default_title": "Qlyx status"
+  },
+  "commands": {
+    "toggle": {
+      "suggested_key": {
+        "default": "Alt+Shift+Q"
+      },
+      "description": "Enable or disable Qlyx monitoring for the current tab"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://chat.deepseek.com/*",
+        "https://chat.qwen.ai/*",
+        "https://kimi.ai/*",
+        "https://www.kimi.ai/*",
+        "https://kimi.com/*",
+        "https://www.kimi.com/*",
+        "https://kimi.moonshot.cn/*"
+      ],
+      "js": ["dist/watch.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*"
+  }
+}

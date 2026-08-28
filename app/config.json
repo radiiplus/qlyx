@@ -1,0 +1,45 @@
+{
+  "lines": {
+    "size": 200,
+    "limit": 500
+  },
+  "items": {
+    "size": 200,
+    "limit": 500
+  },
+  "exec": {
+    "timeout": 30000,
+    "limit": 120000,
+    "bytes": 1048576,
+    "store": 16777216,
+    "shell": false
+  },
+  "edit": {
+    "bytes": 10485760
+  },
+  "create": {
+    "bytes": 10485760
+  },
+  "engine": {
+    "limit": 8,
+    "wait": 30000
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 14783,
+    "path": "/socket",
+    "bytes": 1048576,
+    "token": ""
+  },
+  "commands": {
+    "list": "list",
+    "read": "read",
+    "exec": "exec",
+    "create": "create",
+    "edit": "edit",
+    "delete": "delete",
+    "status": "status",
+    "serve": "serve",
+    "help": "help"
+  }
+}
