@@ -638,7 +638,7 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
     version?: string;
   };
 
-  assert.equal(manifest.version, '1.9.6');
+  assert.equal(manifest.version, '1.9.7');
   assert.equal(manifest.action?.default_popup, 'popup.html');
   assert.equal(manifest.permissions?.includes('scripting'), true);
   assert.equal(manifest.permissions?.includes('sidePanel'), true);
@@ -653,7 +653,10 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(popup, /Local access disabled/);
   assert.doesNotMatch(popup, /<(textarea|input)\b/);
   assert.match(popup, /id="continue-session"/);
+  assert.match(popup, /id="open-page-icon"/);
   assert.match(sidePanel, /dist\/sidepanel\.js/);
+  assert.match(sidePanel, /id="open-full-page"/);
+  assert.match(sidePanel, /id="focus-target"/);
   assert.doesNotMatch(sidePanel, /<iframe\b/);
   assert.doesNotMatch(sidePanelStyles, /body > iframe/);
   assert.match(styles, /width: 344px/);
@@ -771,6 +774,7 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(sidePanelStyles, /overflow-x/);
   assert.match(sidePanelStyles, /\.browser-tab-row/);
   assert.match(sidePanelStyles, /\.browser-event-row/);
+  assert.match(sidePanelStyles, /data-surface="page"/);
   assert.match(sidePanelSource, /writePreferences/);
   assert.match(sidePanelSource, /preferences\.autoFollow/);
   assert.match(sidePanelSource, /expandedOperations/);
@@ -783,6 +787,10 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(sidePanelSource, /popup:stop-workspace/);
   assert.match(sidePanelSource, /popup:toggle-execution/);
   assert.match(sidePanelSource, /popup:toggle-responses/);
+  assert.match(sidePanelSource, /requestedTabValue === null \? Number\.NaN/);
+  assert.match(sidePanelSource, /targetTab/);
+  assert.match(sidePanelSource, /chrome\.tabs\.update\(tabId, \{ active: true \}\)/);
+  assert.match(sidePanelSource, /chrome\.tabs\.create\(\{ url: fullPageUrl\(\) \}\)/);
   assert.match(sidePanelSource, /renderPendingResponses/);
   assert.match(sidePanelSource, /renderBrowser/);
   assert.match(sidePanelSource, /expandedBrowserJobs/);
@@ -804,6 +812,12 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(worker, /personalContext/);
   assert.match(worker, /refreshPromptCatalog/);
   assert.match(worker, /scenario: 'adaptive'/);
+  assert.match(worker, /controlPageTarget/);
+  assert.match(worker, /targetValue === null/);
+  assert.match(worker, /message\.targetTab/);
+  assert.match(worker, /chrome\.commands\.onCommand[\s\S]+void current\(\)\.then/);
+  assert.match(worker, /id: 'open-control-page'/);
+  assert.match(worker, /chrome\.tabs\.create\(\{ url: controlPageUrl\(tab\.id\) \}\)/);
   assert.match(worker, /personal: personalContext/);
   assert.match(worker, /workspaceBindings/);
   assert.match(worker, /workspaceBindings: \[\.\.\.workspaceBindings\]/);

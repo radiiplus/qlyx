@@ -71,6 +71,7 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 h1 { margin: 0; font-size: 16px; line-height: 19px; }
 .title-line span, .identity p { color: var(--muted); font-size: 10px; }
 .identity p { margin: 1px 0 0; }
+.header-actions { display: flex; align-items: center; gap: 6px; }
 
 .icon-button {
   width: 34px;
@@ -88,6 +89,7 @@ h1 { margin: 0; font-size: 16px; line-height: 19px; }
 
 .icon-button:hover { background: var(--glass-strong); color: var(--text); }
 .icon-button svg { width: 17px; height: 17px; }
+.icon-button[hidden] { display: none; }
 
 main { height: 448px; padding: 14px; }
 

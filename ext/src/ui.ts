@@ -103,6 +103,7 @@ export type BridgeState = {
   sessions: number;
   status: string;
   supported: boolean;
+  tab: number | null;
   title: string;
   version: string;
 };
@@ -227,7 +228,7 @@ export function primaryAction(state: BridgeState, busy = false): PrimaryAction {
 }
 
 export async function requestState(
-  input: string | { kind: string; personal?: string; workspace?: string } = 'popup:status',
+  input: string | { kind: string; targetTab?: number; personal?: string; workspace?: string } = 'popup:status',
 ): Promise<BridgeState> {
   const message = typeof input === 'string' ? { kind: input } : input;
   const state = await chrome.runtime.sendMessage(message) as Partial<BridgeState> | undefined;
@@ -268,6 +269,7 @@ export async function requestState(
     sessions: 0,
     status: '-',
     supported: false,
+    tab: null,
     title: 'Current tab',
     version: chrome.runtime.getManifest().version,
     ...state,

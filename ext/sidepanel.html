@@ -16,17 +16,25 @@
             <p>Local automation bridge</p>
           </div>
         </div>
-        <div class="status-cluster">
-          <button id="global-status" class="global-status" type="button" data-tone="offline" aria-haspopup="true">
-            <span aria-hidden="true"></span>
-            <strong id="global-status-label">Checking</strong>
+        <div class="panel-actions">
+          <button id="focus-target" class="icon-button" type="button" title="Return to monitored chat" aria-label="Return to monitored chat" hidden>
+            <i data-lucide="messages-square"></i>
           </button>
-          <div id="status-popover" class="readiness-popover" hidden>
-            <strong id="status-popover-title">Checking</strong>
-            <p id="status-popover-copy">Reading bridge state.</p>
-            <div><span>WebSocket</span><strong id="status-server">-</strong></div>
-            <div><span>Conversation</span><strong id="status-chat">-</strong></div>
-            <div><span>Monitoring</span><strong id="status-monitor">-</strong></div>
+          <button id="open-full-page" class="icon-button" type="button" title="Open full page" aria-label="Open Control Center in a full page">
+            <i data-lucide="external-link"></i>
+          </button>
+          <div class="status-cluster">
+            <button id="global-status" class="global-status" type="button" data-tone="offline" aria-haspopup="true">
+              <span aria-hidden="true"></span>
+              <strong id="global-status-label">Checking</strong>
+            </button>
+            <div id="status-popover" class="readiness-popover" hidden>
+              <strong id="status-popover-title">Checking</strong>
+              <p id="status-popover-copy">Reading bridge state.</p>
+              <div><span>WebSocket</span><strong id="status-server">-</strong></div>
+              <div><span>Conversation</span><strong id="status-chat">-</strong></div>
+              <div><span>Monitoring</span><strong id="status-monitor">-</strong></div>
+            </div>
           </div>
         </div>
       </header>

@@ -9,6 +9,7 @@ coverage/
 # Bounded edit recovery and package artifacts
 *.bak
 *.tgz
+ext/qlyx-extension-*.zip
 
 *.log
 npm-debug.log*

@@ -53,6 +53,7 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 
 .panel-header,
 .panel-identity,
+.panel-actions,
 .global-status,
 .persistent-access,
 .view-header,
@@ -91,6 +92,8 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 }
 
 .panel-identity { min-width: 0; gap: 10px; }
+.panel-actions { min-width: 0; justify-content: flex-end; gap: 6px; }
+.status-cluster { position: relative; }
 
 .mark {
   width: 36px;
@@ -406,6 +409,7 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 .icon-button { width: 30px; height: 30px; display: inline-grid; padding: 0; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--glass); color: var(--secondary); cursor: pointer; }
 .icon-button:hover, .icon-button[aria-pressed="true"] { background: var(--glass-strong); color: var(--accent-active); }
 .icon-button svg { width: 14px; height: 14px; }
+.icon-button[hidden] { display: none; }
 
 .diagnostic-section { padding: 0 0 14px; margin-top: 15px; border-bottom: 1px solid var(--border); }
 .diagnostic-section:first-of-type { margin-top: 0; }
@@ -549,12 +553,34 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 .nav-badge.error { background: var(--red); }
 .nav-badge[hidden] { display: none; }
 
+:root[data-surface="page"] .shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+:root[data-surface="page"] .view {
+  padding: 24px max(24px, calc((100% - 760px) / 2));
+}
+
+:root[data-surface="page"] .icon-rail {
+  justify-content: center;
+  gap: 18px;
+}
+
 @media (max-width: 350px) {
   .panel-header, .persistent-access, .view { padding-right: 12px; padding-left: 12px; }
   .global-status strong { display: none; }
   .global-status { width: 30px; justify-content: center; padding: 0; }
   .log-row { grid-template-columns: 56px 32px minmax(0, 1fr); gap: 4px; }
   .rail-button { width: 42px; }
+}
+
+@media (max-width: 600px) {
+  :root[data-surface="page"] .shell { border: 0; }
+  :root[data-surface="page"] .view { padding: 16px; }
+  :root[data-surface="page"] .icon-rail { gap: 0; }
 }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

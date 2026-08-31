@@ -1,4 +1,4 @@
-import { ArrowRight, History, PanelRightOpen, Pause, Play, Shield, createIcons } from 'lucide';
+import { ArrowRight, ExternalLink, History, PanelRightOpen, Pause, Play, Shield, createIcons } from 'lucide';
 import {
   element,
   primaryAction,
@@ -8,7 +8,7 @@ import {
   type BridgeState,
 } from './ui.ts';
 
-const icons = { ArrowRight, History, PanelRightOpen, Pause, Play, Shield };
+const icons = { ArrowRight, ExternalLink, History, PanelRightOpen, Pause, Play, Shield };
 
 const extensionVersion = element<HTMLSpanElement>('extension-version');
 const readinessNode = element<HTMLDivElement>('readiness');
@@ -38,6 +38,7 @@ const openButtons = [
   element<HTMLButtonElement>('open-panel-icon'),
   element<HTMLButtonElement>('open-panel'),
 ];
+const openPageButton = element<HTMLButtonElement>('open-page-icon');
 
 let latest: BridgeState | undefined;
 let busy = false;
@@ -160,6 +161,30 @@ async function perform(kind: string): Promise<void> {
   if (latest) render(latest);
 }
 
+function fullPageUrl(): string {
+  const url = new URL(chrome.runtime.getURL('sidepanel.html'));
+  url.searchParams.set('surface', 'page');
+  if (latest?.tab !== null && latest?.tab !== undefined) {
+    url.searchParams.set('tab', String(latest.tab));
+  }
+  return url.href;
+}
+
+async function openFullPage(trigger: string): Promise<void> {
+  const url = fullPageUrl();
+  panelLog('page requested', { trigger, targetTab: latest?.tab ?? null });
+  try {
+    await chrome.tabs.create({ url });
+    panelLog('page succeeded', { trigger, targetTab: latest?.tab ?? null });
+    window.close();
+  } catch (error) {
+    transientError = `Could not open Control Center: ${(error as Error).message}`;
+    panelError('page rejected', error);
+    errorMessage.textContent = transientError;
+    errorMessage.hidden = false;
+  }
+}
+
 function openControlCenter(event: MouseEvent): void {
   const trigger = event.currentTarget as HTMLButtonElement;
   const windowId = panelWindowId;
@@ -170,10 +195,7 @@ function openControlCenter(event: MouseEvent): void {
   });
 
   if (!chrome.sidePanel?.open) {
-    transientError = 'The Chrome Side Panel API is unavailable. Qlyx requires Chrome 116 or newer.';
-    panelError('open unavailable', new Error(transientError));
-    errorMessage.textContent = transientError;
-    errorMessage.hidden = false;
+    void openFullPage(`${trigger.id}:fallback`);
     return;
   }
 
@@ -183,20 +205,17 @@ function openControlCenter(event: MouseEvent): void {
       panelLog('open succeeded', { windowId });
       window.close();
     }).catch((error: Error) => {
-      transientError = `Could not open Control Center: ${error.message}`;
       panelError('open rejected', error);
-      errorMessage.textContent = transientError;
-      errorMessage.hidden = false;
+      void openFullPage(`${trigger.id}:rejected`);
     });
   } catch (error) {
-    transientError = `Could not open Control Center: ${(error as Error).message}`;
     panelError('open threw', error);
-    errorMessage.textContent = transientError;
-    errorMessage.hidden = false;
+    void openFullPage(`${trigger.id}:threw`);
   }
 }
 
 for (const button of openButtons) button.addEventListener('click', openControlCenter);
+openPageButton.addEventListener('click', () => void openFullPage(openPageButton.id));
 monitorToggle.addEventListener('click', () => perform('popup:toggle'));
 primaryButton.addEventListener('click', () => perform(primaryButton.dataset.kind || ''));
 continueSession.addEventListener('click', () => perform('popup:continue'));
@@ -215,11 +234,17 @@ void chrome.windows.getCurrent().then((currentWindow) => {
 }).catch((error: Error) => {
   panelError('window resolution failed; using current-window constant', error);
 });
-void chrome.sidePanel.setOptions({ enabled: true, path: 'sidepanel.html' }).then(() => {
-  panelLog('global configuration ready', { path: 'sidepanel.html' });
-}).catch((error: Error) => {
-  panelError('global configuration failed', error);
-});
+if (chrome.sidePanel?.setOptions) {
+  void chrome.sidePanel.setOptions({ enabled: true, path: 'sidepanel.html' }).then(() => {
+    panelLog('global configuration ready', { path: 'sidepanel.html' });
+  }).catch((error: Error) => {
+    panelError('global configuration failed', error);
+  });
+} else {
+  element<HTMLButtonElement>('open-panel-icon').hidden = true;
+  element<HTMLButtonElement>('open-panel').querySelector('span')!.textContent = 'Open full page';
+  panelLog('page fallback ready', { path: 'sidepanel.html' });
+}
 void update().then(() => update('popup:probe'));
 chrome.runtime.onMessage.addListener((message: { kind?: string }) => {
   if (message.kind === 'metrics:changed' && !busy) void update();

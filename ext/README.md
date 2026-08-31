@@ -42,9 +42,19 @@ After npm publication, use `npx @radiiplus/qlyx init` from any project root.
 The toolbar popup is a compact quick launcher with connection readiness,
 conversation authorization, monitoring state, the next contextual action, and a
 small operation summary. It also exposes independent Pause/Resume controls for
-local execution and result delivery. `Open Control Center` launches the persistent Chrome side
-panel so Qlyx remains visible beside the current chat. The page context menu also
-provides `Open Qlyx sidebar`.
+local execution and result delivery. `Open Control Center` launches the persistent
+Chrome side panel when that API is available and otherwise opens the same control
+center as a full extension page. The popup and side panel also expose an explicit
+full-page action on desktop. The page context menu provides both automatic and
+full-page Control Center actions.
+
+Full-page mode binds itself to the supported chat tab from which it was opened.
+Every status request and command carries that tab identity, so selecting the Qlyx
+page does not redirect monitoring or operations away from the conversation. A
+header action returns focus to the bound chat. If that tab closes, Qlyx reports it
+as unavailable instead of silently choosing another conversation. This fallback
+supports extension-capable mobile Chromium browsers that do not implement side
+panels.
 
 The Control Center is a separate operational surface with six icon-only views:
 Control, Activity, Browser, Diagnostics, Session, and Settings. Control exposes current

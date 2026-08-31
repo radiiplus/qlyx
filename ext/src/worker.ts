@@ -116,6 +116,7 @@ type Message = {
   replies?: number;
   session?: string;
   model?: string;
+  targetTab?: number;
   personal?: string;
   workspace?: string;
   level?: LogLevel;
@@ -188,6 +189,7 @@ type PopupState = {
   sessions: number;
   status: string;
   supported: boolean;
+  tab: number | null;
   title: string;
   version: string;
 };
@@ -597,8 +599,34 @@ function connection(): PopupState['server'] {
   return opening ? 'connecting' : 'offline';
 }
 
-async function current(): Promise<chrome.tabs.Tab | undefined> {
+function controlPageTarget(url: string | undefined): number | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    const control = new URL(chrome.runtime.getURL('sidepanel.html'));
+    if (parsed.origin !== control.origin || parsed.pathname !== control.pathname
+      || parsed.searchParams.get('surface') !== 'page') return undefined;
+    const targetValue = parsed.searchParams.get('tab');
+    if (targetValue === null) return undefined;
+    const target = Number(targetValue);
+    return Number.isInteger(target) && target >= 0 ? target : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function current(targetTab?: number): Promise<chrome.tabs.Tab | undefined> {
+  if (targetTab !== undefined) {
+    if (!Number.isInteger(targetTab) || targetTab < 0) return undefined;
+    try {
+      return await chrome.tabs.get(targetTab);
+    } catch {
+      return undefined;
+    }
+  }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const pageTarget = controlPageTarget(tab?.url);
+  if (pageTarget !== undefined) return await current(pageTarget);
   return tab;
 }
 
@@ -707,7 +735,7 @@ async function sessionSummary(
 async function snapshot(tab?: chrome.tabs.Tab, error = ''): Promise<PopupState> {
   await ready;
   const config = await load();
-  const selected = tab || await current();
+  const selected = tab;
   const found = site(selected?.url, config);
   const id = selected?.id;
   let host = '';
@@ -806,6 +834,7 @@ async function snapshot(tab?: chrome.tabs.Tab, error = ''): Promise<PopupState> 
         ? 'Monitoring assistant responses'
         : found ? 'Monitoring disabled' : 'Site is not configured'),
     supported: Boolean(found),
+    tab: id ?? null,
     title: selected?.title || 'Current tab',
     version: chrome.runtime.getManifest().version,
   };
@@ -2965,7 +2994,10 @@ async function test(tab: chrome.tabs.Tab): Promise<PopupState> {
 }
 
 async function popup(message: Message): Promise<PopupState> {
-  const tab = await current();
+  const tab = await current(message.targetTab);
+  const targetError = message.targetTab !== undefined && !tab
+    ? 'The monitored chat tab is no longer available.'
+    : '';
   if (message.kind === 'popup:workspaces') {
     try {
       await refreshWorkspaces();
@@ -3072,7 +3104,7 @@ async function popup(message: Message): Promise<PopupState> {
     }
   }
   if (message.kind === 'popup:clear-logs') await clearLogs();
-  return snapshot(tab);
+  return snapshot(tab, targetError);
 }
 
 async function route(message: Message, sender: chrome.runtime.MessageSender): Promise<void> {
@@ -3161,7 +3193,25 @@ function menu(): void {
     });
     chrome.contextMenus.create({
       id: 'open-side-panel',
-      title: 'Open Qlyx sidebar',
+      title: 'Open Qlyx Control Center',
+      contexts: ['page'],
+      documentUrlPatterns: [
+        'https://chatgpt.com/*',
+        'https://chat.openai.com/*',
+        'https://claude.ai/*',
+        'https://gemini.google.com/*',
+        'https://chat.deepseek.com/*',
+        'https://chat.qwen.ai/*',
+        'https://kimi.ai/*',
+        'https://www.kimi.ai/*',
+        'https://kimi.com/*',
+        'https://www.kimi.com/*',
+        'https://kimi.moonshot.cn/*',
+      ],
+    });
+    chrome.contextMenus.create({
+      id: 'open-control-page',
+      title: 'Open Qlyx in full page',
       contexts: ['page'],
       documentUrlPatterns: [
         'https://chatgpt.com/*',
@@ -3180,17 +3230,40 @@ function menu(): void {
   });
 }
 
+function controlPageUrl(tab?: number): string {
+  const url = new URL(chrome.runtime.getURL('sidepanel.html'));
+  url.searchParams.set('surface', 'page');
+  if (tab !== undefined) url.searchParams.set('tab', String(tab));
+  return url.href;
+}
+
+async function openControlCenter(tab: chrome.tabs.Tab, page = false): Promise<void> {
+  if (!page && chrome.sidePanel?.open) {
+    try {
+      await chrome.sidePanel.open({ windowId: tab.windowId });
+      await writeLog('info', 'worker', 'control.open.succeeded', `surface=panel window=${tab.windowId}`);
+      return;
+    } catch (error) {
+      await writeLog('warn', 'worker', 'control.open.fallback', (error as Error).message);
+    }
+  }
+  await chrome.tabs.create({ url: controlPageUrl(tab.id) });
+  await writeLog('info', 'worker', 'control.open.succeeded', `surface=page tab=${tab.id ?? '-'}`);
+}
+
 chrome.runtime.onInstalled.addListener(menu);
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'open-side-panel' && tab) {
-    console.info('[Qlyx sidebar] context menu open requested', { tabId: tab.id, windowId: tab.windowId });
-    void writeLog('info', 'worker', 'sidebar.open.requested', `tab=${tab.id ?? '-'} window=${tab.windowId}`);
-    void chrome.sidePanel.open({ windowId: tab.windowId }).then(() => {
-      console.info('[Qlyx sidebar] context menu open succeeded', { windowId: tab.windowId });
-      void writeLog('info', 'worker', 'sidebar.open.succeeded', `window=${tab.windowId}`);
-    }).catch((error: Error) => {
-      console.error('[Qlyx sidebar] context menu open rejected', error);
-      void writeLog('error', 'worker', 'sidebar.open.rejected', error.message);
+  if ((info.menuItemId === 'open-side-panel' || info.menuItemId === 'open-control-page') && tab) {
+    const page = info.menuItemId === 'open-control-page';
+    console.info('[Qlyx control] context menu open requested', {
+      tabId: tab.id,
+      windowId: tab.windowId,
+      surface: page ? 'page' : 'auto',
+    });
+    void openControlCenter(tab, page).catch((error: Error) => {
+      console.error('[Qlyx control] context menu open rejected', error);
+      void writeLog('error', 'worker', 'control.open.rejected', error.message);
+      if (tab.id !== undefined) void badge(tab.id, '!', '#b3261e', `Qlyx: ${error.message}`);
     });
     return;
   }
@@ -3202,7 +3275,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 chrome.commands.onCommand.addListener((command) => {
   if (command !== 'toggle' && command !== 'continue-session') return;
-  void chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+  void current().then((tab) => {
     if (!tab) return undefined;
     const work = command === 'continue-session'
       ? sendSessionPrompt(tab, 'continue')

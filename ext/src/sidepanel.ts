@@ -8,6 +8,7 @@ import {
   CircleX,
   Command,
   Copy,
+  ExternalLink,
   FilePenLine,
   FilePlus2,
   FileSearch,
@@ -67,6 +68,7 @@ const icons = {
   CircleX,
   Command,
   Copy,
+  ExternalLink,
   FilePenLine,
   FilePlus2,
   FileSearch,
@@ -111,6 +113,16 @@ let previousPending = 0;
 let actionError = '';
 const expandedOperations = new Set<string>();
 const expandedBrowserJobs = new Set<string>();
+
+const pageParameters = new URLSearchParams(window.location.search);
+const pageSurface = pageParameters.get('surface') === 'page';
+const requestedTabValue = pageParameters.get('tab');
+const requestedTab = requestedTabValue === null ? Number.NaN : Number(requestedTabValue);
+let targetTab = pageSurface && Number.isInteger(requestedTab) && requestedTab >= 0
+  ? requestedTab
+  : undefined;
+
+document.documentElement.dataset.surface = pageSurface ? 'page' : 'panel';
 
 const views: View[] = ["control", "activity", "browser", "diagnostics", "session", "settings"];
 
@@ -835,6 +847,7 @@ function render(next: BridgeState): void {
   }
   previousPending = totalPending;
   state = next;
+  element<HTMLButtonElement>('focus-target').disabled = next.tab === null;
 
   renderGlobal(next);
   renderControl(next);
@@ -861,7 +874,7 @@ function render(next: BridgeState): void {
 
 async function refresh(): Promise<void> {
   try {
-    const next = await requestState("popup:get");
+    const next = await controlState("popup:get");
     render(actionError && !next.error ? { ...next, error: actionError } : next);
   } catch (error) {
     console.error("[Qlyx sidebar] state refresh failed", error);
@@ -879,7 +892,7 @@ async function perform(
   busy = true;
   if (state) render(state);
   try {
-    const next = await requestState(input);
+    const next = await controlState(input);
     actionError = next.error;
     render(next);
   } catch (error) {
@@ -889,6 +902,45 @@ async function perform(
     busy = false;
     if (state) render(state);
   }
+}
+
+function targeted(
+  input: string | { kind: string; personal?: string; workspace?: string },
+): { kind: string; targetTab?: number; personal?: string; workspace?: string } {
+  const message = typeof input === 'string' ? { kind: input } : input;
+  return targetTab === undefined ? message : { ...message, targetTab };
+}
+
+async function controlState(
+  input: string | { kind: string; personal?: string; workspace?: string },
+): Promise<BridgeState> {
+  const next = await requestState(targeted(input));
+  if (pageSurface && targetTab === undefined && next.supported && next.tab !== null) {
+    targetTab = next.tab;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', String(targetTab));
+    window.history.replaceState({}, '', url);
+  }
+  return next;
+}
+
+function fullPageUrl(): string {
+  const url = new URL(chrome.runtime.getURL('sidepanel.html'));
+  url.searchParams.set('surface', 'page');
+  const tab = state?.tab ?? targetTab;
+  if (tab !== null && tab !== undefined) url.searchParams.set('tab', String(tab));
+  return url.href;
+}
+
+async function openFullPage(): Promise<void> {
+  await chrome.tabs.create({ url: fullPageUrl() });
+}
+
+async function focusTarget(): Promise<void> {
+  const tabId = state?.tab ?? targetTab;
+  if (tabId === null || tabId === undefined) return;
+  const tab = await chrome.tabs.update(tabId, { active: true });
+  if (tab?.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
 }
 
 function promptRequest(kind: 'popup:setup' | 'popup:continue' | 'popup:set-prompts'): {
@@ -912,6 +964,12 @@ function wireInteractions(): void {
     const popover = element<HTMLElement>("status-popover");
     popover.hidden = !popover.hidden;
   });
+  const openPage = element<HTMLButtonElement>('open-full-page');
+  const focus = element<HTMLButtonElement>('focus-target');
+  openPage.hidden = pageSurface;
+  focus.hidden = !pageSurface;
+  openPage.addEventListener('click', () => void openFullPage());
+  focus.addEventListener('click', () => void focusTarget());
   document.addEventListener("click", (event) => {
     const popover = element<HTMLElement>("status-popover");
     if (!popover.hidden && event.target instanceof Element && !event.target.closest(".status-cluster")) popover.hidden = true;
@@ -1003,7 +1061,11 @@ function wireInteractions(): void {
 }
 
 async function start(): Promise<void> {
-  console.info("[Qlyx sidebar] control center starting", { path: window.location.pathname });
+  console.info("[Qlyx sidebar] control center starting", {
+    path: window.location.pathname,
+    surface: pageSurface ? 'page' : 'panel',
+    targetTab: targetTab ?? null,
+  });
   wireInteractions();
   preferences = await readPreferences();
   selectView(preferences.lastView, false);
