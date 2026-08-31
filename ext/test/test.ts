@@ -638,7 +638,7 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
     version?: string;
   };
 
-  assert.equal(manifest.version, '1.9.5');
+  assert.equal(manifest.version, '1.9.6');
   assert.equal(manifest.action?.default_popup, 'popup.html');
   assert.equal(manifest.permissions?.includes('scripting'), true);
   assert.equal(manifest.permissions?.includes('sidePanel'), true);

@@ -15,7 +15,7 @@ Quote paths that contain spaces according to the shell being used.
 After the package is published, initialize a project from its root:
 
 ```bash
-npx qlyx init
+npx @radiiplus/qlyx init
 ```
 
 `init` creates `.agent/state.json`, initializes the project-owned agent files and

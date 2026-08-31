@@ -37,7 +37,7 @@ cd ../app
 node dist/cli.js init
 ```
 
-After npm publication, use `npx qlyx init` from any project root.
+After npm publication, use `npx @radiiplus/qlyx init` from any project root.
 
 The toolbar popup is a compact quick launcher with connection readiness,
 conversation authorization, monitoring state, the next contextual action, and a

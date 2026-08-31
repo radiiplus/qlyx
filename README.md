@@ -15,7 +15,7 @@ AI chat providers.
 ## Install
 
 ```bash
-npm install --global qlyx
+npm install --global @radiiplus/qlyx
 qlyx init
 ```
 
