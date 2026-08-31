@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Qlyx",
-  "version": "1.0.0",
-  "description": "Routes structured assistant response blocks to the local Qlyx automation server.",
+  "version": "1.9.5",
+  "description": "Runs persistent Qlyx agent workflows across local workspaces, browser pages, and AI chats.",
   "minimum_chrome_version": "116",
-  "permissions": ["contextMenus", "storage"],
+  "permissions": ["contextMenus", "scripting", "sidePanel", "storage", "tabs"],
   "host_permissions": [
+    "<all_urls>",
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
@@ -22,7 +23,11 @@
     "service_worker": "dist/worker.js"
   },
   "action": {
-    "default_title": "Qlyx status"
+    "default_title": "Qlyx status",
+    "default_popup": "popup.html"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "commands": {
     "toggle": {
@@ -30,6 +35,12 @@
         "default": "Alt+Shift+Q"
       },
       "description": "Enable or disable Qlyx monitoring for the current tab"
+    },
+    "continue-session": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Continue the saved Qlyx session in the current chat"
     }
   },
   "content_scripts": [
@@ -52,6 +63,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*; style-src 'self'"
   }
 }

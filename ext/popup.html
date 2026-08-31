@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qlyx</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <header class="popup-header">
+      <div class="identity">
+        <div class="mark" aria-hidden="true">Q</div>
+        <div>
+          <div class="title-line"><h1>Qlyx</h1><span id="extension-version">v-</span></div>
+          <p>Local automation bridge</p>
+        </div>
+      </div>
+      <button id="open-panel-icon" class="icon-button" type="button" title="Open Control Center" aria-label="Open Control Center">
+        <i data-lucide="panel-right-open" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <main>
+      <section class="readiness-surface" aria-labelledby="readiness-label">
+        <div class="readiness-line">
+          <div id="readiness" class="state state-offline">
+            <span class="state-dot"></span>
+            <strong id="readiness-label">Checking</strong>
+          </div>
+          <span id="server-latency">-</span>
+        </div>
+        <div class="conversation-line">
+          <div id="provider-mark" class="provider-mark" aria-hidden="true">-</div>
+          <div>
+            <strong id="provider-name">Current tab</strong>
+            <span id="conversation-state">Detecting conversation</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="monitor-row" aria-label="Monitoring authorization">
+        <div>
+          <strong>Monitoring</strong>
+          <span id="monitor-state">Disabled</span>
+        </div>
+        <button id="monitor-toggle" class="toggle" type="button" role="switch" aria-checked="false" aria-label="Toggle monitoring">
+          <span></span>
+        </button>
+      </section>
+
+      <div id="access-notice" class="access-notice is-muted">
+        <i data-lucide="shield" aria-hidden="true"></i>
+        <span>Local access disabled</span>
+      </div>
+
+      <section class="flow-controls" aria-label="Agent flow controls">
+        <button id="execution-control" class="flow-button" type="button" title="Pause execution">
+          <i data-lucide="pause" aria-hidden="true"></i>
+          <span id="execution-control-label">Pause execution</span>
+          <strong id="execution-queue-count">0</strong>
+        </button>
+        <button id="response-control" class="flow-button" type="button" title="Pause response delivery">
+          <i data-lucide="pause" aria-hidden="true"></i>
+          <span id="response-control-label">Pause responses</span>
+          <strong id="response-queue-count">0</strong>
+        </button>
+      </section>
+
+      <button id="primary-action" class="primary-button" type="button">Checking status</button>
+      <button id="continue-session" class="secondary-button" type="button">
+        <i data-lucide="history" aria-hidden="true"></i>
+        <span>Continue session</span>
+      </button>
+      <p id="error-message" class="error-message" role="alert" hidden></p>
+
+      <section class="activity-summary" aria-label="Operation summary">
+        <div><strong id="running-count">0</strong><span>Running</span></div>
+        <div><strong id="pending-count">0</strong><span>Queued</span></div>
+        <div><strong id="response-count">0</strong><span>Responses</span></div>
+        <div><strong id="failed-count">0</strong><span>Failed</span></div>
+        <p id="current-operation" title="Idle">Idle</p>
+      </section>
+    </main>
+
+    <footer>
+      <button id="open-panel" class="panel-button" type="button">
+        <span>Open Control Center</span>
+        <i data-lucide="arrow-right" aria-hidden="true"></i>
+      </button>
+    </footer>
+
+    <script src="dist/popup.js"></script>
+  </body>
+</html>

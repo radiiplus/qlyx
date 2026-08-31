@@ -1,6 +1,14 @@
 node_modules/
-ext/dist/
+dist/
 coverage/
+
+# Qlyx workspace-local state and generated prompt configuration
+**/.agent/
+**/qlyx.prompts.json
+
+# Bounded edit recovery and package artifacts
+*.bak
+*.tgz
 
 *.log
 npm-debug.log*

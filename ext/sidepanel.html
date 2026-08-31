@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en" data-density="compact">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qlyx Control Center</title>
+    <link rel="stylesheet" href="sidepanel.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="panel-header">
+        <div class="panel-identity">
+          <div class="mark" aria-hidden="true">Q</div>
+          <div>
+            <h1>Qlyx</h1>
+            <p>Local automation bridge</p>
+          </div>
+        </div>
+        <div class="status-cluster">
+          <button id="global-status" class="global-status" type="button" data-tone="offline" aria-haspopup="true">
+            <span aria-hidden="true"></span>
+            <strong id="global-status-label">Checking</strong>
+          </button>
+          <div id="status-popover" class="readiness-popover" hidden>
+            <strong id="status-popover-title">Checking</strong>
+            <p id="status-popover-copy">Reading bridge state.</p>
+            <div><span>WebSocket</span><strong id="status-server">-</strong></div>
+            <div><span>Conversation</span><strong id="status-chat">-</strong></div>
+            <div><span>Monitoring</span><strong id="status-monitor">-</strong></div>
+          </div>
+        </div>
+      </header>
+
+      <aside id="persistent-safety" class="persistent-access is-muted" aria-live="polite">
+        <i data-lucide="shield"></i>
+        <div>
+          <strong id="safety-title">Local access disabled</strong>
+          <span id="safety-copy">Monitoring is stopped. The agent cannot dispatch local operations.</span>
+        </div>
+      </aside>
+
+      <main class="views">
+        <section id="view-control" class="view" aria-labelledby="control-heading">
+          <header class="view-header">
+            <div>
+              <p>Control</p>
+              <h2 id="control-heading">System readiness</h2>
+            </div>
+            <i data-lucide="sliders-horizontal"></i>
+          </header>
+
+          <section id="control-readiness" class="readiness-block" data-tone="offline">
+            <div class="readiness-summary">
+              <span aria-hidden="true"></span>
+              <div>
+                <strong id="control-ready-label">Checking</strong>
+                <p id="control-ready-detail">Reading bridge state.</p>
+              </div>
+            </div>
+            <dl class="status-list">
+              <div><dt>WebSocket</dt><dd id="control-server">-</dd></div>
+              <div><dt>Conversation</dt><dd id="control-conversation">-</dd></div>
+              <div><dt>Monitor</dt><dd id="control-monitor">-</dd></div>
+            </dl>
+          </section>
+
+          <section id="control-session" class="conversation-strip is-empty" aria-label="Current conversation">
+            <div id="control-provider" class="provider-mark">-</div>
+            <div>
+              <strong id="control-title">No supported conversation</strong>
+              <p id="control-lock">Not authorized</p>
+            </div>
+          </section>
+
+          <div class="automation-row">
+            <div>
+              <p>Automation</p>
+              <strong>Monitor this conversation</strong>
+            </div>
+            <label class="switch">
+              <input id="control-monitoring" type="checkbox" aria-label="Monitor this conversation">
+              <span aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <button id="control-primary" class="primary-button" type="button">
+            <span id="control-primary-label">Checking status</span>
+          </button>
+
+          <section class="flow-section" aria-labelledby="flow-heading">
+            <div class="flow-heading">
+              <div>
+                <p>Agent flow</p>
+                <h3 id="flow-heading">Execution and responses</h3>
+              </div>
+              <span id="flow-total-count">0 pending</span>
+            </div>
+            <div class="flow-actions">
+              <button id="execution-control" class="flow-action" type="button" aria-pressed="false">
+                <i data-lucide="pause"></i>
+                <span><strong id="execution-control-label">Pause execution</strong><small id="execution-control-detail">0 queued</small></span>
+              </button>
+              <button id="response-control" class="flow-action" type="button" aria-pressed="false">
+                <i data-lucide="pause"></i>
+                <span><strong id="response-control-label">Pause responses</strong><small id="response-control-detail">0 pending</small></span>
+              </button>
+            </div>
+            <div class="pending-heading">
+              <span>Pending responses</span>
+              <strong id="pending-response-count">0</strong>
+            </div>
+            <div id="pending-response-list" class="pending-response-list" aria-live="polite">
+              <p class="pending-empty">No responses are waiting.</p>
+            </div>
+          </section>
+
+          <div class="metric-row" aria-label="Activity summary">
+            <div><span>Running</span><strong id="metric-running">0</strong></div>
+            <div><span>Queued</span><strong id="metric-queued">0</strong></div>
+            <div><span>Responses</span><strong id="metric-responses">0</strong></div>
+            <div><span>Failed</span><strong id="metric-failed">0</strong></div>
+          </div>
+          <div id="control-current" class="current-work" hidden>
+            <i data-lucide="loader-circle" class="is-spinning"></i>
+            <span id="current-operation">Idle</span>
+            <time id="current-elapsed">00:00</time>
+          </div>
+        </section>
+
+        <section id="view-activity" class="view" aria-labelledby="activity-heading" hidden>
+          <header class="view-header">
+            <div>
+              <p>Activity</p>
+              <h2 id="activity-heading">Agent operations</h2>
+            </div>
+            <i data-lucide="activity"></i>
+          </header>
+          <div class="filter-row" role="group" aria-label="Activity filters">
+            <button class="filter-button is-active" type="button" data-activity-filter="all">All</button>
+            <button class="filter-button" type="button" data-activity-filter="pending">Pending</button>
+            <button class="filter-button" type="button" data-activity-filter="running">Running</button>
+            <button class="filter-button" type="button" data-activity-filter="completed">Completed</button>
+            <button class="filter-button" type="button" data-activity-filter="failed">Failed</button>
+          </div>
+          <div id="activity-feed" class="activity-feed" aria-live="polite"></div>
+        </section>
+
+        <section id="view-browser" class="view" aria-labelledby="browser-heading" hidden>
+          <header class="view-header">
+            <div>
+              <p>Browser</p>
+              <h2 id="browser-heading">Tabs and jobs</h2>
+            </div>
+            <i data-lucide="panels-top-left"></i>
+          </header>
+          <dl class="browser-summary" aria-label="Browser trace totals">
+            <div><dt>Tabs</dt><dd id="browser-tab-count">0</dd></div>
+            <div><dt>Running</dt><dd id="browser-running-count">0</dd></div>
+            <div><dt>Failed</dt><dd id="browser-failed-count">0</dd></div>
+          </dl>
+          <section class="browser-trace-section" aria-labelledby="browser-tabs-heading">
+            <div class="browser-section-heading">
+              <h3 id="browser-tabs-heading">Logical tabs</h3>
+              <span id="browser-tabs-label">0 open</span>
+            </div>
+            <div id="browser-tab-list" class="browser-tab-list" aria-live="polite"></div>
+          </section>
+          <section class="browser-trace-section" aria-labelledby="browser-jobs-heading">
+            <div class="browser-section-heading">
+              <h3 id="browser-jobs-heading">Job trace</h3>
+              <span id="browser-jobs-label">0 jobs</span>
+            </div>
+            <div id="browser-job-list" class="browser-job-list" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section id="view-diagnostics" class="view" aria-labelledby="diagnostics-heading" hidden>
+          <header class="view-header diagnostics-header">
+            <div>
+              <p>Diagnostics</p>
+              <h2 id="diagnostics-heading">Bridge telemetry</h2>
+            </div>
+            <div class="icon-actions">
+              <button id="logs-filter" class="icon-button" type="button" title="Show errors only" aria-label="Show errors only"><i data-lucide="filter"></i></button>
+              <button id="logs-pause" class="icon-button" type="button" title="Pause logs" aria-label="Pause logs"><i data-lucide="pause"></i></button>
+              <button id="logs-copy" class="icon-button" type="button" title="Copy logs" aria-label="Copy logs"><i data-lucide="copy"></i></button>
+              <button id="logs-clear" class="icon-button" type="button" title="Clear logs" aria-label="Clear logs"><i data-lucide="trash-2"></i></button>
+            </div>
+          </header>
+
+          <section class="diagnostic-section">
+            <h3>Connection</h3>
+            <dl class="diagnostic-grid">
+              <div><dt>WebSocket</dt><dd id="diag-websocket">-</dd></div>
+              <div><dt>Latency</dt><dd id="diag-latency">-</dd></div>
+            </dl>
+          </section>
+          <section class="diagnostic-section">
+            <h3>DOM detection</h3>
+            <ul class="check-list">
+              <li><span class="check-dot"></span>Chat <strong id="diag-chat">-</strong></li>
+              <li><span class="check-dot"></span>Composer <strong id="diag-composer">-</strong></li>
+              <li><span class="check-dot"></span>Assistant response <strong id="diag-response">-</strong></li>
+              <li><span class="check-dot"></span>Monitoring observer <strong id="diag-observer">-</strong></li>
+            </ul>
+          </section>
+          <section class="diagnostic-section">
+            <h3>Protocol</h3>
+            <dl class="protocol-row">
+              <div><dt id="diag-detected">0</dt><dd>Detected</dd></div>
+              <div><dt id="diag-executed">0</dt><dd>Executed</dd></div>
+              <div><dt id="diag-delivered">0</dt><dd>Delivered</dd></div>
+            </dl>
+          </section>
+          <section class="log-section">
+            <div class="log-heading"><h3>Events</h3><span>Live</span></div>
+            <div id="diagnostic-logs" class="diagnostic-log" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section id="view-session" class="view" aria-labelledby="session-heading" hidden>
+          <header class="view-header">
+            <div>
+              <p>Session</p>
+              <h2 id="session-heading">Conversation authorization</h2>
+            </div>
+            <i data-lucide="link"></i>
+          </header>
+          <div id="session-warning" class="session-warning" hidden>
+            <i data-lucide="triangle-alert"></i>
+            <div>
+              <strong>Conversation changed</strong>
+              <p>Qlyx stopped monitoring because the authorized conversation is no longer active.</p>
+            </div>
+          </div>
+          <div class="workspace-settings">
+            <label for="session-workspace">Workspace</label>
+            <div class="workspace-control">
+              <select id="session-workspace" name="workspace">
+                <option value="">No workspace</option>
+              </select>
+              <button id="session-workspace-stop" class="icon-button" type="button" title="Stop workspace" aria-label="Stop workspace">
+                <i data-lucide="power"></i>
+              </button>
+            </div>
+            <p id="session-workspace-root">Run qlyx init in a project.</p>
+          </div>
+          <div class="prompt-settings">
+            <label>Working mode</label>
+            <div id="session-mode" class="adaptive-mode">
+              <i data-lucide="route"></i>
+              <strong>Adaptive</strong>
+            </div>
+            <p id="session-mode-description">Planning, exploration, implementation, and autonomous execution</p>
+            <label for="session-personal">Task context <span>Optional</span></label>
+            <textarea id="session-personal" name="personal" rows="3" placeholder="Add project or task-specific context"></textarea>
+          </div>
+          <div class="session-setup">
+            <button id="session-setup" class="primary-button" type="button">
+              <i data-lucide="link"></i>
+              <span id="session-setup-label">Set up chat session</span>
+            </button>
+            <p id="session-setup-note">Checking the current conversation.</p>
+          </div>
+          <div id="session-details">
+            <section id="session-lock-summary" class="session-identity">
+              <div id="session-provider" class="provider-mark large">-</div>
+              <div>
+                <span>Authorized conversation</span>
+                <strong id="session-title">-</strong>
+                <p><i data-lucide="lock"></i> Exact conversation lock</p>
+              </div>
+            </section>
+            <dl class="session-details">
+              <div><dt>Provider</dt><dd id="session-provider-name">-</dd></div>
+              <div><dt>Status</dt><dd id="session-status">-</dd></div>
+              <div><dt>Conversation identity</dt><dd><code id="session-identity">-</code></dd></div>
+              <div><dt>Monitoring</dt><dd id="session-monitoring">-</dd></div>
+              <div><dt>Authorized since</dt><dd id="session-authorized">-</dd></div>
+              <div><dt>Context</dt><dd><code id="session-context">-</code></dd></div>
+            </dl>
+            <div class="session-actions">
+              <button id="session-continue" class="secondary-button" type="button"><i data-lucide="history"></i><span>Continue session</span></button>
+              <button id="session-check" class="secondary-button" type="button"><i data-lucide="refresh-cw"></i><span>Run check</span></button>
+            </div>
+          </div>
+          <div id="session-empty" class="empty-state" hidden>
+            <i data-lucide="messages-square"></i>
+            <strong>No conversation authorized</strong>
+            <p>Open a supported AI conversation to begin.</p>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
+          <header class="view-header">
+            <div>
+              <p>Settings</p>
+              <h2 id="settings-heading">Preferences</h2>
+            </div>
+            <i data-lucide="settings-2"></i>
+          </header>
+          <section class="settings-group">
+            <h3>Bridge</h3>
+            <div class="setting-row">
+              <div><strong>Local server</strong><span id="settings-endpoint">-</span></div>
+              <button id="settings-check" class="icon-button" type="button" title="Check connection" aria-label="Check connection"><i data-lucide="refresh-cw"></i></button>
+            </div>
+          </section>
+          <section class="settings-group">
+            <h3>Monitoring</h3>
+            <label class="setting-row">
+              <div><strong>Follow running work</strong><span>Open Activity when an operation starts</span></div>
+              <span class="switch"><input id="settings-auto-follow" type="checkbox"><span aria-hidden="true"></span></span>
+            </label>
+            <label class="setting-row">
+              <div><strong>Deliver results</strong><span>Return operation results to the conversation</span></div>
+              <span class="switch"><input id="settings-result-delivery" type="checkbox" checked><span aria-hidden="true"></span></span>
+            </label>
+          </section>
+          <section class="settings-group">
+            <h3>Appearance</h3>
+            <div class="setting-row">
+              <div><strong>Density</strong><span>Choose the panel spacing</span></div>
+              <div class="segmented" role="group" aria-label="Interface density">
+                <button type="button" data-density="compact">Compact</button>
+                <button type="button" data-density="comfortable">Comfort</button>
+              </div>
+            </div>
+          </section>
+          <details class="advanced-settings">
+            <summary><span>Advanced</span><i data-lucide="chevron-down"></i></summary>
+            <dl>
+              <div><dt>Extension</dt><dd id="settings-version">-</dd></div>
+              <div><dt>Agent protocol</dt><dd id="settings-agent">-</dd></div>
+              <div><dt>Queue limit</dt><dd id="settings-limit">-</dd></div>
+              <div><dt>Watch payload</dt><dd id="settings-payload">-</dd></div>
+            </dl>
+          </details>
+        </section>
+      </main>
+
+      <nav class="icon-rail" aria-label="Control Center views">
+        <button id="nav-control" class="rail-button is-active" type="button" data-tooltip="Control" aria-label="Control" aria-current="page"><i data-lucide="sliders-horizontal"></i></button>
+        <button id="nav-activity" class="rail-button" type="button" data-tooltip="Activity" aria-label="Activity"><i data-lucide="activity"></i><span id="activity-badge" class="nav-badge" hidden></span></button>
+        <button id="nav-browser" class="rail-button" type="button" data-tooltip="Browser" aria-label="Browser"><i data-lucide="panels-top-left"></i><span id="browser-badge" class="nav-badge" hidden></span></button>
+        <button id="nav-diagnostics" class="rail-button" type="button" data-tooltip="Diagnostics" aria-label="Diagnostics"><i data-lucide="bug"></i><span id="diagnostic-badge" class="nav-badge error" hidden></span></button>
+        <button id="nav-session" class="rail-button" type="button" data-tooltip="Session" aria-label="Session"><i data-lucide="link"></i></button>
+        <button id="nav-settings" class="rail-button" type="button" data-tooltip="Settings" aria-label="Settings"><i data-lucide="settings-2"></i></button>
+      </nav>
+    </div>
+    <script src="dist/sidepanel.js"></script>
+  </body>
+</html>

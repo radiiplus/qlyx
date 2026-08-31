@@ -1,19 +1,47 @@
 {
-  "name": "reader",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Concurrent filesystem and process engine for automation",
+  "name": "qlyx",
+  "version": "1.9.5",
+  "description": "Provider-neutral autonomous agent bridge for local workspaces and browser chats",
+  "keywords": [
+    "ai-agent",
+    "browser-extension",
+    "coding-agent",
+    "developer-tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/radiiplus/qlyx.git",
+    "directory": "app"
+  },
+  "bugs": {
+    "url": "https://github.com/radiiplus/qlyx/issues"
+  },
+  "homepage": "https://github.com/radiiplus/qlyx#readme",
   "type": "module",
-  "exports": "./src/tool.ts",
+  "bin": {
+    "qlyx": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "config.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "start": "node src/tool.ts",
-    "server": "node src/server.ts",
-    "test": "node --test test/test.ts",
+    "start": "tsx src/cli.ts",
+    "server": "tsx src/server.ts",
+    "build": "node build.mjs",
+    "prepack": "npm run build",
+    "test": "tsx --test test/test.ts",
     "check": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.0"
   },
   "engines": {

@@ -22,7 +22,8 @@
   },
   "engine": {
     "limit": 8,
-    "wait": 30000
+    "wait": 30000,
+    "batch": 20
   },
   "server": {
     "host": "127.0.0.1",
@@ -32,13 +33,19 @@
     "token": ""
   },
   "commands": {
+    "batch": "batch",
+    "autonomyState": "autonomy_state",
+    "autonomyUpdate": "autonomy_update",
+    "autonomyEvent": "autonomy_event",
     "list": "list",
     "read": "read",
     "exec": "exec",
     "create": "create",
     "edit": "edit",
     "delete": "delete",
+    "cancel": "cancel",
     "status": "status",
+    "session": "session",
     "serve": "serve",
     "help": "help"
   }

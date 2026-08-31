@@ -33,6 +33,28 @@ function hash(value: string): string {
   return (code >>> 0).toString(36);
 }
 
+function decode(
+  action: string,
+  raw: string,
+  at: number,
+  limit: number,
+): Block {
+  const body = clean(raw);
+  const key = `${action}:${body.length}:${hash(body)}`;
+  if (new TextEncoder().encode(body).byteLength > limit) {
+    return { action, error: `Block exceeds ${limit} bytes.`, key, at };
+  }
+  try {
+    const value: unknown = JSON.parse(body);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('Payload must be a JSON object.');
+    }
+    return { action, value: value as Record<string, unknown>, key, at };
+  } catch (error) {
+    return { action, error: (error as Error).message, key, at };
+  }
+}
+
 export function parse(text: string, marks: Mark[], limit = 1048576): Block[] {
   const blocks: Block[] = [];
   for (const mark of marks) {
@@ -45,21 +67,7 @@ export function parse(text: string, marks: Mark[], limit = 1048576): Block[] {
       const tail = text.indexOf(mark.end, head);
       if (tail < 0) break;
       const raw = text.slice(head, tail);
-      const body = clean(raw);
-      const key = `${mark.action}:${body.length}:${hash(body)}`;
-      if (new TextEncoder().encode(body).byteLength > limit) {
-        blocks.push({ action: mark.action, error: `Block exceeds ${limit} bytes.`, key, at });
-      } else {
-        try {
-          const value: unknown = JSON.parse(body);
-          if (!value || typeof value !== 'object' || Array.isArray(value)) {
-            throw new Error('Payload must be a JSON object.');
-          }
-          blocks.push({ action: mark.action, value: value as Record<string, unknown>, key, at });
-        } catch (error) {
-          blocks.push({ action: mark.action, error: (error as Error).message, key, at });
-        }
-      }
+      blocks.push(decode(mark.action, raw, at, limit));
       offset = tail + mark.end.length;
     }
   }
