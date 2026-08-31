@@ -16,6 +16,9 @@
   --red: #ff6673;
   --section-gap: 20px;
   --row-height: 44px;
+  --viewport-height: 100dvh;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --navigation-height: calc(58px + var(--safe-area-bottom));
 }
 
 :root[data-density="comfortable"] {
@@ -45,6 +48,8 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 .shell {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
+  height: var(--viewport-height, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -522,10 +527,10 @@ button:disabled { cursor: not-allowed; opacity: 0.42; }
 .icon-rail {
   position: relative;
   z-index: 20;
-  height: 58px;
-  flex: 0 0 58px;
+  height: var(--navigation-height);
+  flex: 0 0 var(--navigation-height);
   justify-content: space-around;
-  padding: 6px 12px 8px;
+  padding: 6px 12px calc(8px + var(--safe-area-bottom));
   border-top: 1px solid var(--border);
   background: rgba(17, 21, 26, 0.82);
   backdrop-filter: blur(18px);

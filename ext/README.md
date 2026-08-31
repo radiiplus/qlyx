@@ -56,6 +56,10 @@ as unavailable instead of silently choosing another conversation. This fallback
 supports extension-capable mobile Chromium browsers that do not implement side
 panels.
 
+The mobile Control Center follows the live visual viewport and reserves device
+safe-area space so its bottom navigation remains visible in both mobile and
+desktop-layout modes.
+
 The Control Center is a separate operational surface with six icon-only views:
 Control, Activity, Browser, Diagnostics, Session, and Settings. Control exposes current
 readiness and the monitoring action; Activity contains expandable human-readable

@@ -124,6 +124,15 @@ let targetTab = pageSurface && Number.isInteger(requestedTab) && requestedTab >=
 
 document.documentElement.dataset.surface = pageSurface ? 'page' : 'panel';
 
+function syncViewportHeight(): void {
+  const height = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+  document.documentElement.style.setProperty('--viewport-height', `${height}px`);
+}
+
+syncViewportHeight();
+window.addEventListener('resize', syncViewportHeight);
+window.visualViewport?.addEventListener('resize', syncViewportHeight);
+
 const views: View[] = ["control", "activity", "browser", "diagnostics", "session", "settings"];
 
 function hydrateIcons(): void {

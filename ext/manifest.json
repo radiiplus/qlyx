@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Qlyx",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "description": "Runs persistent Qlyx agent workflows across local workspaces, browser pages, and AI chats.",
   "minimum_chrome_version": "116",
   "permissions": ["contextMenus", "scripting", "sidePanel", "storage", "tabs"],

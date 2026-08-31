@@ -1,6 +1,6 @@
 {
   "name": "@radiiplus/qlyx",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "description": "Provider-neutral autonomous agent bridge for local workspaces and browser chats",
   "keywords": [
     "ai-agent",

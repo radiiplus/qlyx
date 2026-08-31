@@ -638,7 +638,7 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
     version?: string;
   };
 
-  assert.equal(manifest.version, '1.9.7');
+  assert.equal(manifest.version, '1.9.8');
   assert.equal(manifest.action?.default_popup, 'popup.html');
   assert.equal(manifest.permissions?.includes('scripting'), true);
   assert.equal(manifest.permissions?.includes('sidePanel'), true);
@@ -775,6 +775,9 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(sidePanelStyles, /\.browser-tab-row/);
   assert.match(sidePanelStyles, /\.browser-event-row/);
   assert.match(sidePanelStyles, /data-surface="page"/);
+  assert.match(sidePanelStyles, /--viewport-height/);
+  assert.match(sidePanelStyles, /safe-area-inset-bottom/);
+  assert.match(sidePanel, /viewport-fit=cover/);
   assert.match(sidePanelSource, /writePreferences/);
   assert.match(sidePanelSource, /preferences\.autoFollow/);
   assert.match(sidePanelSource, /expandedOperations/);
@@ -788,6 +791,8 @@ test('declares distinct compact popup and persistent sidebar control surfaces', 
   assert.match(sidePanelSource, /popup:toggle-execution/);
   assert.match(sidePanelSource, /popup:toggle-responses/);
   assert.match(sidePanelSource, /requestedTabValue === null \? Number\.NaN/);
+  assert.match(sidePanelSource, /window\.visualViewport\?\.height/);
+  assert.match(sidePanelSource, /--viewport-height/);
   assert.match(sidePanelSource, /targetTab/);
   assert.match(sidePanelSource, /chrome\.tabs\.update\(tabId, \{ active: true \}\)/);
   assert.match(sidePanelSource, /chrome\.tabs\.create\(\{ url: fullPageUrl\(\) \}\)/);
