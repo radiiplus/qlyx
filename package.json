@@ -1,0 +1,36 @@
+{
+  "name": "@radiiplus/qlyx",
+  "version": "2.0.0",
+  "description": "A terminal coding agent with Qwen chat, local tools, browser control, and resumable sessions.",
+  "license": "ISC",
+  "type": "module",
+  "main": "chat.js",
+  "bin": {
+    "qlyx": "./chat.js"
+  },
+  "files": [
+    "*.js",
+    "module/**/*.js",
+    "module/**/*.md",
+    "readme.md",
+    "instructions.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node chat.js",
+    "chat": "node chat.js",
+    "test": "node --test test/*.js",
+    "mcp": "node server.js",
+    "prepublishOnly": "npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "cheerio": "^1.2.0",
+    "cli-highlight": "^2.1.11",
+    "playwright": "^1.63.0",
+    "zod": "^4.6.4"
+  }
+}
