@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { chromium } from 'playwright';
-import { classify, connect, discover, load, store, origin } from '../module/session.js';
+import { attach, classify, connect, discover, load, store, origin } from '../module/session.js';
 
 async function directory(t) {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'session-'));
@@ -82,6 +82,19 @@ test('discovery requires an explicitly enabled existing browser', async (t) => {
   assert.equal(await discover(folder), 'ws://127.0.0.1:9222/devtools/browser/fixture');
 });
 
+test('browser attachment retries a discovered websocket through its HTTP endpoint', async () => {
+  const calls = [];
+  const browser = {};
+  const result = await attach('ws://127.0.0.1:9222/devtools/browser/fixture', async target => {
+    calls.push(target);
+    if (target.startsWith('ws:')) throw new Error('websocket initialization stalled');
+    return browser;
+  });
+  assert.equal(result, browser);
+  assert.deepEqual(calls, ['ws://127.0.0.1:9222/devtools/browser/fixture', 'http://127.0.0.1:9222']);
+  await assert.rejects(attach('http://127.0.0.1:9222', async () => { throw new Error('closed'); }), /Could not attach.*remote debugging.*closed/);
+});
+
 test('login uses an attached browser; saves and restores session; disconnect preserves existing tabs', { timeout: 60000 }, async (t) => {
   const location = path.join(await directory(t), 'config', 'session.json');
   const first = await fixture(t, location, { login: true });
@@ -124,6 +137,15 @@ test('expired session fails unattended; interactive login replaces it', { timeou
   await session.ensure({ timeout: 15000 });
   assert.equal(stats.logins, 1);
   assert.equal((await load(location)).cookies[0].value, 'valid');
+});
+
+test('browser request reuses the attached page credentials', { timeout: 30000 }, async (t) => {
+  const location = path.join(await directory(t), 'session.json');
+  const { session } = await fixture(t, location, { login: true });
+  await session.ensure({ timeout: 15000 });
+  const response = await session.request(`${origin}/api/v1/auths/`, { headers: { accept: 'application/json', cookie: 'not-forwarded' } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { id: 'fixture' });
 });
 
 test('403 does not open login; direct 401 and HTML challenges are not success', { timeout: 30000 }, async (t) => {

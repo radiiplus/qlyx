@@ -62,14 +62,16 @@ process.on('SIGTERM', terminate);
 try {
   const { values, positionals } = parse({ allowPositionals: true, options: {
     root: { type: 'string', default: process.cwd() }, resume: { type: 'string' }, model: { type: 'string' },
+    provider: { type: 'string', default: process.env.PROVIDER || 'qwen' },
     steps: { type: 'string', default: '20' }, timeout: { type: 'string', default: '180' }, mcp: { type: 'string' },
     autonomous: { type: 'boolean' }, passive: { type: 'boolean' }, unattended: { type: 'boolean' },
     plain: { type: 'boolean' }, palette: { type: 'string' }, new: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   if (values.help) {
-    console.log('Usage: qlyx [--root PATH] [--resume ID|latest] [--autonomous | --passive] [--model ID] [--steps 20] [--timeout 180] [--mcp FILE] [--palette FILE] [--unattended] [--plain] [--new] ["Initial prompt"]\n\n' + help);
+    console.log('Usage: qlyx [--root PATH] [--resume ID|latest] [--provider qwen|deepseek] [--autonomous | --passive] [--model ID] [--steps 20] [--timeout 180] [--mcp FILE] [--palette FILE] [--unattended] [--plain] [--new] ["Initial prompt"]\n\n' + help);
   } else {
     if (values.autonomous && values.passive) throw new Error('Choose autonomous or passive mode.');
+    if (!['qwen', 'deepseek'].includes(values.provider)) throw new Error('Provider must be qwen or deepseek.');
     let models = [];
     let progress, batch = false;
     const tasks = new Map();
@@ -99,7 +101,7 @@ try {
           else throw new Error('Use /plan status, /plan steps, or /plan progress. Planning is automatic.');
         }
         else if (verb === '/map') ui.view('map', feed.map, false);
-        else if (verb === '/learned') ui.view('learned', () => book.entries.filter(event => event.type === 'complete').flatMap(event => ['Qwen interpretation · ' + new Date(event.time).toLocaleString(), ...(event.learned || []), ...(event.limitations || []).map(value => 'Limitation: ' + value)]), false);
+        else if (verb === '/learned') ui.view('learned', () => book.entries.filter(event => event.type === 'complete').flatMap(event => ['Model interpretation · ' + new Date(event.time).toLocaleString(), ...(event.learned || []), ...(event.limitations || []).map(value => 'Limitation: ' + value)]), false);
         else {
           const selected = book.get(id)?.id;
           const file = book.get(selected)?.arguments?.file;
@@ -124,7 +126,7 @@ try {
     catalog = await database();
     async function open(options, replay = false) {
       const initial = !engine;
-      const next = await runtime({ ...options, catalog, model: values.model, steps: Number(values.steps), timeout: Number(values.timeout) * 1000,
+      const next = await runtime({ ...options, catalog, provider: values.provider, model: values.model, steps: Number(values.steps), timeout: Number(values.timeout) * 1000,
         mcp: values.mcp, autonomous: mode === 'autonomous', passive: mode === 'passive', unattended: values.unattended,
         notify: event => {
           if (event.type === 'plan') { progress = event.state; indicate(); }
@@ -159,7 +161,7 @@ try {
     }
     function indicate() {
       const steps = progress?.plan || [];
-      ui.context({ workspace: path.basename(engine.root), mode, model: values.model, plan: steps.length ? `plan ${steps.filter(step => /^\[x\]/i.test(step)).length}/${steps.length}` : 'plan auto' });
+      ui.context({ workspace: path.basename(engine.root), mode, model: `${values.provider}:${values.model || 'default'}`, plan: steps.length ? `plan ${steps.filter(step => /^\[x\]/i.test(step)).length}/${steps.length}` : 'plan auto' });
     }
     async function resume(id) {
       const row = await catalog.resolve(id);

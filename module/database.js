@@ -1,10 +1,9 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { z } from 'zod';
 import { schema as conversation } from './chat.js';
-import { store } from './store.js';
+import { home, migrate, store } from './store.js';
 
 const checkpoint = z.object({ schema: z.literal(1), id: z.string(), root: z.string(), task: z.string(), status: z.string(),
   plan: z.array(z.string()), history: z.array(z.record(z.string(), z.unknown())), steps: z.number().int().min(0),
@@ -28,9 +27,10 @@ async function save(location, state) {
 }
 
 /** Central index, snapshots, checkpoints, and chat history. */
-export async function database({ location = process.env.DATABASE || path.join(os.userInfo().homedir, '.local', 'share', 'qwen', 'session.db') } = {}) {
+export async function database({ location = process.env.DATABASE || path.join(home, 'session.db') } = {}) {
   const { DatabaseSync: Database } = await import('node:sqlite');
   location = path.resolve(location);
+  if (!process.env.DATABASE && location === path.join(home, 'session.db')) await migrate();
   await fs.mkdir(path.dirname(location), { recursive: true, mode: 0o700 });
   try { if (!(await fs.lstat(location)).isFile()) throw new Error('Database must be a regular file, not a symlink.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }

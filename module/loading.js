@@ -1,4 +1,4 @@
-export function loading({ output = process.stderr, label = 'Waiting for Qwen' } = {}) {
+export function loading({ output = process.stderr, label = 'Waiting for model' } = {}) {
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const started = Date.now();
   let index = 0;

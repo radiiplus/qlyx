@@ -1,8 +1,7 @@
-import { chromium } from 'playwright';
-import { discover } from './session.js';
+import { attach, discover } from './session.js';
 
 /** Controls one owned tab in an existing Chrome profile through remote debugging. */
-export function browser({ endpoint = process.env.ENDPOINT, profile = process.env.PROFILE, attach = (endpoint) => chromium.connectOverCDP(endpoint, { timeout: 60000, noDefaults: true }) } = {}) {
+export function browser({ endpoint = process.env.ENDPOINT, profile = process.env.PROFILE, attach: dial = attach } = {}) {
   let connection;
   let page;
   let nodes = [];
@@ -11,7 +10,7 @@ export function browser({ endpoint = process.env.ENDPOINT, profile = process.env
     if (closed) throw new Error('Browser tools are closed.');
     if (page && !page.isClosed()) return;
     if (!connection) {
-      connection = await attach(endpoint || await discover(profile));
+      connection = await dial(endpoint || await discover(profile));
       if (closed) { await connection.close(); throw new Error('Browser connection was cancelled.'); }
     }
     const context = connection.contexts()[0];

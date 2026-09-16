@@ -34,7 +34,7 @@ test('saved session, progress, directory and file events render content instead 
   feed.attach(journal({ root, name: 'fixture' }));
   const transcript = feed.transcript().join('\n');
   assert.match(transcript, /Session connected/);
-  assert.match(transcript, /Waiting for Qwen · step 2/);
+  assert.match(transcript, /Waiting for model · step 2/);
   assert.match(transcript, /INPUT\nDirectory: \./);
   assert.match(transcript, /  src\//);
   assert.doesNotMatch(transcript + listing + output, /"(?:type|entries|digest|directory|content)":|\\n|secret|\[object Object\]/);
@@ -86,7 +86,7 @@ test('Ctrl+T and Ctrl+O retain syntax and full row backgrounds through wrapping,
   assert.doesNotMatch(screen, /"content":|\[object Object\]/);
   book.append({ type: 'pending', step: 3 }); ui.update();
   await new Promise(resolve => setTimeout(resolve, 80));
-  assert.match(strip(screen), /Waiting for Qwen · step 3/);
+  assert.match(strip(screen), /Waiting for model · step 3/);
   screen = ''; input.write('\x0f');
   assert.match(screen, /OUTPUT/); assert.match(screen, /\x1b\[35mconst/);
   output.columns = 28; output.emit('resize');

@@ -1,7 +1,7 @@
 {
   "name": "@radiiplus/qlyx",
-  "version": "2.0.0",
-  "description": "A terminal coding agent with Qwen chat, local tools, browser control, and resumable sessions.",
+  "version": "2.0.2",
+  "description": "A terminal coding agent with Qwen and DeepSeek, local tools, browser control, and resumable sessions.",
   "license": "ISC",
   "type": "module",
   "main": "chat.js",

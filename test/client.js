@@ -104,7 +104,7 @@ test('loading reports pending and clears a terminal spinner only once', () => {
   for (const terminal of [true, false]) {
     const writes = [];
     const stop = loading({ output: { isTTY: terminal, write: (text) => writes.push(text) } });
-    assert.match(writes[0], /Waiting for Qwen/);
+    assert.match(writes[0], /Waiting for model/);
     stop();
     const count = writes.length;
     stop();
@@ -194,7 +194,7 @@ test('runtime reconnects once after a recoverable Qwen stream failure and restor
     throw new Error('unexpected request');
   };
   const { runtime } = await import('../module/runtime.js');
-  const engine = await runtime({ root, unattended: true, notify: event => notices.push(event), catalog: await (await import('../module/database.js')).database({ location: path.join(root, 'db.sqlite') }) });
+  const engine = await runtime({ root, session: await config(t), unattended: true, notify: event => notices.push(event), catalog: await (await import('../module/database.js')).database({ location: path.join(root, 'db.sqlite') }) });
   t.after(() => { globalThis.fetch = original; return engine.close(); });
   const result = await engine.send('Recover this request.');
   assert.equal(result.status, 'complete'); assert.equal(result.message, 'Recovered.');

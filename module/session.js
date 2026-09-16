@@ -4,11 +4,13 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { fileURLToPath as filename } from 'node:url';
-import { home } from './store.js';
+import { archive, home } from './store.js';
+import { open as raw } from './cdp.js';
 
 export const origin = 'https://chat.qwen.ai';
 export const file = path.join(home, 'session.json');
 const legacy = filename(new URL('../config/session.json', import.meta.url));
+const former = path.join(archive, 'session.json');
 const authentication = '/api/v1/auths/';
 const allowed = new Set(['source', 'version', 'accept-language']);
 
@@ -29,9 +31,13 @@ export async function load(location = file) {
     if (error.code !== 'ENOENT') throw error;
     if (path.resolve(location) !== path.resolve(file)) return null;
     try {
-      text = await fs.readFile(legacy, 'utf8');
+      try { text = await fs.readFile(former, 'utf8'); }
+      catch (fallback) {
+        if (fallback.code !== 'ENOENT') throw fallback;
+        text = await fs.readFile(legacy, 'utf8');
+      }
       await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-      await fs.copyFile(legacy, file, fs.constants.COPYFILE_EXCL).catch(failure => {
+      await fs.writeFile(file, text, { flag: 'wx', mode: 0o600 }).catch(failure => {
         if (failure.code !== 'EEXIST') throw failure;
       });
       await fs.chmod(file, 0o600);
@@ -78,6 +84,36 @@ export async function discover(profile = process.env.PROFILE) {
   throw new Error('Enable remote debugging in your existing Chrome at chrome://inspect/#remote-debugging, then retry. Set ENDPOINT if using an explicit debugging URL.');
 }
 
+function http(endpoint) {
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') return null;
+    return `${url.protocol === 'wss:' ? 'https:' : 'http:'}//${url.host}`;
+  } catch { return null; }
+}
+
+const native = target => chromium.connectOverCDP(target, { timeout: 5_000 });
+
+export async function attach(endpoint, dial = native) {
+  let failure;
+  if (dial === native && endpoint.startsWith('ws:')) {
+    try {
+      const quick = await raw(endpoint);
+      if (quick.busy) return quick;
+      await quick.close();
+    } catch (error) { failure = error; }
+  }
+  for (const target of [endpoint, http(endpoint)].filter(Boolean)) {
+    try { return await dial(target); }
+    catch (error) { failure = error; }
+  }
+  if (dial === native && endpoint.startsWith('ws:')) {
+    try { return await raw(endpoint); }
+    catch (error) { failure = error; }
+  }
+  throw new Error(`Could not attach to the existing browser at ${endpoint}. Ensure Chrome remote debugging is enabled and accept its connection prompt. ${failure?.message || ''}`.trim());
+}
+
 /** Connects to the existing browser. Only a new Qwen tab is owned by this module. */
 export async function connect({
   location = process.env.SESSION || file,
@@ -85,13 +121,13 @@ export async function connect({
   profile = process.env.PROFILE,
   observe = async () => {},
   log = console.log,
-  attach = (endpoint) => chromium.connectOverCDP(endpoint, { timeout: 60_000, noDefaults: true }),
+  attach: dial = attach,
 } = {}) {
   location = path.resolve(location);
   let config = await load(location);
   endpoint ||= await discover(profile);
   log('Connecting to your existing browser. Accept its debugging prompt if shown.');
-  const browser = await attach(endpoint);
+  const browser = await dial(endpoint);
   const context = browser.contexts()[0];
   let page;
   let closed = false;
@@ -188,6 +224,17 @@ export async function connect({
     return { ...classify({ status: response.status, body }), transport: 'fetch', headers: ['accept', 'cookie'] };
   }
 
+  async function request(url, options = {}) {
+    options.signal?.throwIfAborted();
+    const headers = Object.fromEntries(Object.entries(options.headers || {}).filter(([key]) => !['cookie', 'origin', 'referer', 'host', 'content-length'].includes(key.toLowerCase())));
+    const result = await page.evaluate(async ({ url, method, headers, body, timeout }) => {
+      const response = await fetch(url, { method, headers, body, credentials: 'include', signal: AbortSignal.timeout(timeout) });
+      return { status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() };
+    }, { url: String(url), method: options.method || 'GET', headers, body: options.body, timeout: 120_000 });
+    options.signal?.throwIfAborted();
+    return new Response(result.body, { status: result.status, headers: result.headers });
+  }
+
   try {
     if (!context) throw new Error('Existing browser has no accessible default context.');
     page = await context.newPage();
@@ -201,5 +248,5 @@ export async function connect({
     const response = await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     if (!response?.ok()) throw new Error(`Qwen navigation failed: HTTP ${response?.status() ?? 'no response'}`);
   } catch (error) { await close(); throw error; }
-  return { page, location, check, ensure, save, verify, close };
+  return { page, location, check, ensure, save, verify, request, close };
 }

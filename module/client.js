@@ -118,7 +118,7 @@ export async function answer(body, delta = () => {}, options = {}) {
   return { text, response: typeof response === 'string' && response ? response : undefined };
 }
 
-export async function create({ location = process.env.SESSION || file, request = fetch, timeout = 120_000 } = {}) {
+async function qwen({ location = process.env.SESSION || file, request = fetch, timeout = 120_000 } = {}) {
   const config = await load(location);
   if (!config) throw new Failure('No saved Qwen session. Run npx qlyx to sign in.', 401);
   if (!Number.isFinite(timeout) || timeout <= 0) throw new Failure('Timeout must be a positive number.');
@@ -217,5 +217,12 @@ export async function create({ location = process.env.SESSION || file, request =
     }
     return { ...await answer(response.body, delta, { redact, route: '/api/v2/chat/completions' }), chat, model };
   }
-  return { check, models, send, redact, get account() { return account; } };
+  return { provider: 'qwen', check, models, send, redact, get account() { return account; } };
+}
+
+export async function create(options = {}) {
+  const provider = options.provider || process.env.PROVIDER || 'qwen';
+  if (provider === 'qwen') return qwen(options);
+  if (provider === 'deepseek') return (await import('./deepseek.js')).create(options);
+  throw new Failure('Provider must be qwen or deepseek.');
 }

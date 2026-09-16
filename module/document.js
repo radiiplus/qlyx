@@ -88,8 +88,8 @@ export function record(event) {
     case 'tool': content = [...rows(`SERVER ${event.tool.split('.')[0]} · TOOL ${event.tool}`, 'muted'), ...rows(event.summary), ...(typeof event.batch === 'string' ? rows('Batch: ' + event.batch, 'muted') : []), ...rows('INPUT', 'muted'), ...input(event)]; break;
     case 'result': content = [...rows(`Duration: ${((event.elapsed || 0) / 1000).toFixed(2)}s`, 'muted'), ...result(event)]; break;
     case 'session': content = [...rows('Session connected', 'success'), ...rows(`Workspace: ${event.root || 'current'}`, 'muted')]; break;
-    case 'reconnect': content = rows(event.message || 'Reconnecting to Qwen and validating the session.', 'attention'); break;
-    case 'pending': content = rows(`Waiting for Qwen · step ${event.step ?? '?'}`, 'muted'); break;
+    case 'reconnect': content = rows(event.message || 'Reconnecting to the model provider and validating authentication.', 'attention'); break;
+    case 'pending': content = rows(`Waiting for model · step ${event.step ?? '?'}`, 'muted'); break;
     case 'output': content = [...rows(event.stream || 'stdout', 'muted'), ...rows(event.text, event.stream === 'stderr' ? 'error' : 'text')]; break;
     case 'change': content = [...rows(`${event.file} · +${event.added} −${event.removed}`, 'muted'), ...(event.lines || []).flatMap(line => rows(line.text, line.kind === 'added' ? 'added' : line.kind === 'removed' ? 'removed' : 'context', { language: language(event.file) })), ...rows(`/diff ${event.id || ''} for the captured change`, 'muted')]; break;
     case 'job': content = [...rows(`Task ${event.job} · ${event.status}`, event.status === 'running' ? 'muted' : event.status === 'complete' ? 'success' : 'error'), ...result({ content: Object.fromEntries(Object.entries(event).filter(([key]) => !['type', 'time', 'id', 'tool', 'job', 'status'].includes(key))) })]; break;

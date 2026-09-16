@@ -13,10 +13,11 @@ import { store } from './store.js';
 import { skills } from './skills.js';
 
 /** Shared execution engine for one-shot commands and the persistent chat UI. */
-export async function runtime({ root = process.cwd(), resume, name, kind = 'agent', fresh = false, model, steps = 20, timeout = 180000,
+export async function runtime({ root = process.cwd(), resume, name, kind = 'agent', fresh = false, provider = process.env.PROVIDER || 'qwen', session: credentials = process.env.SESSION, model, steps = 20, timeout = 180000,
   mcp, autonomous = false, passive = false, unattended = false, catalog, notify = () => {}, approve = async () => false } = {}) {
   if (!Number.isInteger(steps) || steps < 1 || steps > 100) throw new Error('Steps must be between 1 and 100.');
   if (!Number.isSafeInteger(timeout) || timeout <= 0 || timeout > 3600000) throw new Error('Timeout must be greater than zero and at most 3600 seconds.');
+  if (!['qwen', 'deepseek'].includes(provider)) throw new Error('Provider must be qwen or deepseek.');
   root = await fs.realpath(root);
   const owned = !catalog;
   catalog ||= await database();
@@ -44,16 +45,30 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   }
   async function access(signal) {
-    try { client = await create({ timeout }); await client.check({ signal }); }
+    const transport = provider === 'qwen' && session?.request ? { request: session.request } : {};
+    try { client = await create({ provider, location: credentials, timeout, ...transport }); await client.check({ signal }); }
     catch (error) {
-      if (error.status !== 401 || unattended) throw error;
-      session = await connect({ log: message => notify({ type: 'notice', message }) });
-      signal.throwIfAborted();
-      await session.ensure();
-      await session.close();
+      const recover = error.status === 401 || provider === 'qwen' && /network|fetch failed|timeout|connect/i.test(error.message || '');
+      if (!recover || unattended) throw error;
+      if (session) {
+        try {
+          await session.ensure({ interactive: error.status === 401 });
+          client = await create({ provider, location: credentials, timeout, ...(provider === 'qwen' ? { request: session.request } : {}) });
+          await client.check({ signal });
+          redact = client.redact;
+          return client;
+        } catch (retry) {
+          if (signal.aborted) throw retry;
+        }
+      }
+      try { await session?.close(); } catch {}
       session = undefined;
+      const login = provider === 'deepseek' ? (await import('./deepseek.js')).connect : connect;
+      session = await login({ location: credentials, log: message => notify({ type: 'notice', message }) });
       signal.throwIfAborted();
-      client = await create({ timeout });
+      if (error.status === 401) await session.ensure();
+      signal.throwIfAborted();
+      client = await create({ provider, location: credentials, timeout, ...(provider === 'qwen' ? { request: session.request } : {}) });
       await client.check({ signal });
     }
     redact = client.redact;
@@ -64,14 +79,14 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
     controller = new AbortController();
     signal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     try { const client = await access(signal); return await client.models({ signal }); }
-    finally { try { await session?.close(); } finally { session = undefined; controller = undefined; } }
+    finally { try { await client?.close?.(); } finally { client = undefined; controller = undefined; } }
   }
   async function validate({ signal } = {}) {
     if (closed || controller) throw new Error('Wait for the current turn before validating the session.');
     controller = new AbortController();
     signal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     try { const client = await access(signal); return await client.check({ signal }); }
-    finally { try { await session?.close(); } finally { session = undefined; controller = undefined; } }
+    finally { try { await client?.close?.(); } finally { client = undefined; controller = undefined; } }
   }
   function select(value) {
     if (closed || controller) throw new Error('Wait for the current turn before changing model.');
@@ -86,7 +101,7 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       if (kind === 'agent' && previous?.pending) throw new Error('A previous tool has an uncertain result. Inspect the workspace and start a new session; it will not be replayed automatically.');
       if (kind === 'agent' && previous?.status === 'complete' && !task) { await notes.save(previous); return previous; }
       signal.throwIfAborted();
-      notify({ type: 'status', message: 'Connecting to Qwen' });
+      notify({ type: 'status', message: `Connecting to ${provider === 'deepseek' ? 'DeepSeek' : 'Qwen'}` });
       client = await access(signal);
       if (kind === 'agent' && !connection) connection = await bridge({ root, config: mcp, autonomous, passive,
         approve, notify: event => notify(JSON.parse(redact(JSON.stringify(event)))), log: message => notify({ type: 'notice', message: redact(message) }) });
@@ -100,7 +115,7 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       });
       fresh = false;
       if (kind === 'prompt') {
-        notify({ type: 'status', message: 'Qwen is replying' });
+        notify({ type: 'status', message: `${provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} is replying` });
         const answer = await conversation.send(task, { model, signal });
         return { status: 'complete', message: answer.text };
       }
@@ -120,8 +135,8 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
           catch (error) {
             const retryable = error?.status === 401 || error?.code === 'ECONNRESET' || error?.code === 'ETIMEDOUT' || /fetch failed|network|socket|timed out/i.test(error?.message || '');
             if (!retryable || signal?.aborted) throw error;
-            notify({ type: 'reconnect', message: 'Qwen connection interrupted; validating the session and reconnecting.' });
-            try { await conversation?.close(); } catch {}
+            notify({ type: 'reconnect', message: `${provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} connection interrupted; validating authentication and reconnecting.` });
+            try { await conversation?.close(); await client?.close?.(); } catch {}
             conversation = undefined;
             client = await access(signal);
             conversation = await chat({ root, name: id, client, fresh: true, snapshot: kind === 'agent', directory: paths.chats, notes, legacy, log: message => notify({ type: 'notice', message }), record: (state, metadata) => {
@@ -136,8 +151,8 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       try { await conversation?.close(); }
       finally {
         conversation = undefined;
-        try { await session?.close(); }
-        finally { session = undefined; controller = undefined; }
+        try { await client?.close?.(); }
+        finally { client = undefined; controller = undefined; }
       }
     }
   }
@@ -152,7 +167,8 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
     if (controller) throw new Error('Cancel and await the current turn before closing the runtime.');
     if (closed) return;
     closed = true;
-    try { await connection?.close(); } finally { if (owned) catalog.close(); }
+    try { await connection?.close(); await session?.close(); await client?.close?.(); }
+    finally { session = undefined; client = undefined; if (owned) catalog.close(); }
   }
   return { root, id, kind, location, journals: paths.journals, send, models, validate, select, history, cancel, close, stop, redact: text => redact(text), get identity() { return identity; }, get fresh() { return fresh; } };
 }

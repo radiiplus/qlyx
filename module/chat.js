@@ -82,7 +82,7 @@ export async function chat({ root = process.cwd(), name = 'prompt', client, fres
       state.pending = false;
       if (account) state.account = null;
       await save();
-      log('Remote Qwen chat reset; the next request will restore local context.');
+      log(`Remote ${client.provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} chat reset; the next request will restore local context.`);
     }
     async function send(prompt, options = {}) {
       if (closed || busy) throw new Error('Chat is closed or already processing a request.');
@@ -118,7 +118,7 @@ export async function chat({ root = process.cwd(), name = 'prompt', client, fres
         state.model = result.model;
         state.pending = false;
         // Without a response ID there is no safe parent for a subsequent turn.
-        if (!state.parent) { state.remote = null; log('Qwen omitted the response ID; the next request will restore local context.'); }
+        if (!state.parent) { state.remote = null; log(`${client.provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} omitted the response ID; the next request will restore local context.`); }
         await save();
         return result;
       } catch (error) {

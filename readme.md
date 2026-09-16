@@ -1,17 +1,19 @@
 # qlyx
 
-qlyx is a terminal coding agent powered by an authenticated Qwen web session. It
-can inspect a project, edit files, run commands, browse documentation, operate an
-existing Chrome tab, track a plan, and resume work later. The model selects
-actions while the local qlyx runtime validates and executes them through MCP.
+qlyx is a terminal coding agent that can use Qwen or DeepSeek as its model
+provider. It can inspect a project, edit files, run commands, browse documentation,
+operate an existing Chrome tab, track a plan, and resume work later. The model
+selects actions while the local qlyx runtime validates and executes them through
+MCP.
 
 ## Requirements
 
 - Node.js 22 or newer.
 - npm with access to the public npm registry.
-- Chrome or Chromium with remote debugging enabled when authentication or browser
-  control is needed.
-- A Qwen account for model requests.
+- Chrome or Chromium with remote debugging enabled for Qwen authentication or
+  browser control.
+- A Qwen account for the stable provider. DeepSeek web-session support is being
+  developed separately.
 
 qlyx uses the current operating-system user's permissions. Its execution modes
 control which tools may run, but they do not create an OS sandbox.
@@ -53,7 +55,7 @@ npx @radiiplus/qlyx --root /path/to/project "Explain how authentication works"
 npx @radiiplus/qlyx --autonomous "Add a health endpoint and run the tests"
 ```
 
-## First authentication
+## Qwen authentication
 
 qlyx uses your existing Chrome profile so Google or Qwen sign-in remains
 available. It does not launch a separate browser profile.
@@ -65,9 +67,14 @@ available. It does not launch a separate browser profile.
 5. Complete Qwen sign-in or browser verification in the qlyx-owned tab.
 
 When authentication succeeds, qlyx stores the Qwen session privately at
-`~/.local/share/qwen/session.json`. The file is owner-readable only and is never
+`~/.local/share/qlyx/session.json`. The file is owner-readable only and is never
 placed in the workspace or npm package. qlyx stores only Qwen cookies and Qwen
 page storage, not Google cookies or data from unrelated sites.
+
+The Chrome “Allow” prompt authorizes qlyx to attach to the DevTools session; it
+is separate from Qwen sign-in. qlyx keeps that attachment open for the lifetime
+of the CLI process, so normal follow-up prompts reuse it. Chrome can ask again
+after qlyx exits, after the browser restarts, or after a connection is revoked.
 
 On Linux, qlyx discovers common Chrome and Chromium profiles. You can choose a
 profile or debugging endpoint explicitly:
@@ -80,6 +87,22 @@ ENDPOINT=http://127.0.0.1:9222 npx @radiiplus/qlyx
 Use `/session check` inside qlyx to validate the saved session. Missing or expired
 credentials trigger the interactive browser flow unless `--unattended` is set.
 
+## Model providers
+
+Qwen is the stable default provider and uses the browser session described above.
+Select it explicitly with:
+
+```sh
+npx @radiiplus/qlyx --provider qwen
+```
+
+DeepSeek web-session support is reserved for a follow-up. It will use the same
+existing-browser authentication pattern and will not use an API key. Do not set
+up a DeepSeek provider session from this release yet.
+
+Use `--model ID` or `/model` to choose one of the models returned by the active
+provider.
+
 ## Command-line options
 
 ```text
@@ -91,10 +114,11 @@ npx @radiiplus/qlyx [options] ["Initial prompt"]
 | `--root PATH` | Workspace qlyx may inspect and modify. Defaults to the current directory. |
 | `--resume ID` | Resume a saved global session and reopen its original workspace. |
 | `--resume latest` | Resume the newest agent checkpoint in the selected workspace. |
-| `--new` | Start a new remote Qwen conversation while preserving local context. |
-| `--model ID` | Select a Qwen model for subsequent requests. |
+| `--provider qwen\|deepseek` | Select the model provider. Qwen is the stable default. |
+| `--new` | Start a new remote model conversation while preserving local context. |
+| `--model ID` | Select a model from the active provider for subsequent requests. |
 | `--steps N` | Limit model decisions for a task. Default 20, range 1 to 100. |
-| `--timeout SECONDS` | Set the Qwen request timeout. Default 180, maximum 3600. |
+| `--timeout SECONDS` | Set the model request timeout. Default 180, maximum 3600. |
 | `--mcp FILE` | Load additional MCP server definitions from JSON. |
 | `--autonomous` | Execute enabled tools without individual approval prompts. |
 | `--passive` | Allow inspection and research while disabling mutations and commands. |
@@ -146,8 +170,8 @@ close the menu. You can also type any complete command directly.
 | `/resume ID` | Resume a global session ID or unique ID prefix. |
 | `/continue` | Continue the current paused or incomplete agent task. |
 | `/history` | Print the saved user and assistant conversation. |
-| `/reset` | Start a new remote Qwen chat with the current local context. |
-| `/session check` | Validate and refresh the saved Qwen session. |
+| `/reset` | Start a new remote model conversation with the current local context. |
+| `/session check` | Validate the active provider's authentication. |
 
 `/sessions` opens an inline picker in an interactive terminal. Resuming a session
 switches to its original workspace, prints its previous conversation, and keeps
@@ -247,7 +271,7 @@ End a line with `\` to compose multiline input.
 | `End` | Jump to the end and follow new viewer events. |
 
 Input entered while the agent is busy is queued and delivered at the next model
-decision boundary. If new direction arrives while Qwen is selecting an action,
+decision boundary. If new direction arrives while the model is selecting an action,
 qlyx discards that stale action before execution.
 
 ## What the agent can do
@@ -324,12 +348,12 @@ On first use, qlyx creates three editable files in each workspace:
 | `plan.md` | User notes plus the current agent-managed milestone section. |
 
 New workspace files are copied from templates under
-`~/.local/share/qwen/templates/`. Edit those templates to change defaults for
+`~/.local/share/qlyx/templates/`. Edit those templates to change defaults for
 future workspaces. Existing workspace files are never replaced by the templates.
 
 The agent can propose a reusable global skill after verifying a procedure.
 Guided mode asks before saving it; autonomous mode can save it directly. Global
-skills live under `~/.local/share/qwen/skills/` with owner-only permissions. The
+skills live under `~/.local/share/qlyx/skills/` with owner-only permissions. The
 default `os` and `browser` skills explain local tool and existing-browser usage.
 Skills cannot contain known credentials, session data, or project-only secrets.
 
@@ -338,7 +362,7 @@ Skills cannot contain known credentials, session data, or project-only secrets.
 qlyx stores its central SQLite catalog at:
 
 ```text
-~/.local/share/qwen/session.db
+~/.local/share/qlyx/session.db
 ```
 
 The catalog tracks prompt conversations and coding runs across workspaces. It
@@ -346,9 +370,13 @@ stores titles, status, workspace paths, conversation snapshots, and checkpoint
 snapshots. Checkpoints, chats, journals, and locks are stored under the same
 central data directory with private permissions.
 
-Session history survives terminal restarts and Qwen account changes. When the
-authenticated account changes, qlyx starts a new remote Qwen chat and restores
+Session history survives terminal restarts and provider account changes. When the
+authenticated account changes, qlyx starts a new remote conversation and restores
 the saved local context instead of sending the old account's remote chat ID.
+
+On first use after upgrading, qlyx migrates existing data from
+`~/.local/share/qwen/` into the qlyx data directory. Existing qlyx files take
+precedence if both directories already exist.
 
 Use `DATABASE=/path/to/session.db npx @radiiplus/qlyx` to select a different
 catalog and `SESSION=/path/to/session.json npx @radiiplus/qlyx` to select a
@@ -376,9 +404,10 @@ socket, timeout, or 401 interruption occurs during a turn, it validates the
 session, creates a new remote chat from the saved local context, and retries the
 model decision once. It never automatically replays a tool action.
 
-Browser verification challenges require manual completion in the attached Qwen
-tab. Provider failures show the safe reason, code, and endpoint when available;
-saved cookie values and terminal control characters are redacted.
+Qwen browser verification challenges require manual completion in the attached
+Qwen tab. Provider failures show the safe reason, code, and endpoint when
+available; saved cookie values, API keys, and terminal control characters are
+redacted.
 
 An interrupted tool is marked uncertain. Inspect the workspace and execution
 output before continuing because the operating-system action may have completed

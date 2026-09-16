@@ -137,7 +137,7 @@ test('native tool errors recover through explicit text transport guidance withou
       if (!turn++) return { text: 'Tool local.list does not exists.' };
       if (turn === 2) {
         assert.equal(calls, 0);
-        assert.match(update, /NOT native Qwen tools/);
+        assert.match(update, /NOT native provider tools/);
         assert.match(update, /ordinary answer text/);
         return action('local.list', {});
       }
