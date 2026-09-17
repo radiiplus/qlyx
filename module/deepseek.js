@@ -198,7 +198,8 @@ export async function connect({ location = process.env.SESSION || file, endpoint
     }, config);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
   }
-  async function ensure({ interactive = true, timeout = 10 * 60_000 } = {}) {
+  async function ensure({ interactive = true, timeout = 10 * 60_000, signal } = {}) {
+    signal?.throwIfAborted();
     let result = await check();
     if (!result.authenticated && config) { log('Restoring the saved DeepSeek session.'); await restore(); result = await check(); }
     if (result.authenticated) { log('Existing DeepSeek session is authenticated.'); await save(); return; }
@@ -208,6 +209,7 @@ export async function connect({ location = process.env.SESSION || file, endpoint
     await page.bringToFront();
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
+      signal?.throwIfAborted();
       if (closed || page.isClosed()) throw new Error('DeepSeek tab closed before authentication completed.');
       if ((await check()).authenticated) { await save(); log('DeepSeek authentication succeeded.'); return; }
       await page.waitForTimeout(1500);

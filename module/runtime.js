@@ -52,7 +52,7 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       if (!recover || unattended) throw error;
       if (session) {
         try {
-          await session.ensure({ interactive: error.status === 401 });
+          await session.ensure({ interactive: error.status === 401, signal });
           client = await create({ provider, location: credentials, timeout, ...(provider === 'qwen' ? { request: session.request } : {}) });
           await client.check({ signal });
           redact = client.redact;
@@ -66,7 +66,7 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       const login = provider === 'deepseek' ? (await import('./deepseek.js')).connect : connect;
       session = await login({ location: credentials, log: message => notify({ type: 'notice', message }) });
       signal.throwIfAborted();
-      if (error.status === 401) await session.ensure();
+      if (error.status === 401) await session.ensure({ signal });
       signal.throwIfAborted();
       client = await create({ provider, location: credentials, timeout, ...(provider === 'qwen' ? { request: session.request } : {}) });
       await client.check({ signal });

@@ -138,6 +138,13 @@ try {
           feed.notify(event); ui.update();
         }, approve: action => batch ? Promise.resolve(true) : ui.approve(JSON.parse(engine.redact(JSON.stringify(action))), controller?.signal),
       });
+      if (initial) {
+        busy = true;
+        controller = new AbortController();
+        try { await next.validate({ signal: controller.signal }); }
+        catch (error) { await next.close(); throw error; }
+        finally { busy = false; controller = undefined; ui.status(''); }
+      }
       const same = engine?.root === next.root && engine?.id === next.id;
       await engine?.close();
       engine = next;

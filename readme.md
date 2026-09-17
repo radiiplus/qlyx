@@ -86,6 +86,8 @@ ENDPOINT=http://127.0.0.1:9222 npx @radiiplus/qlyx
 
 Use `/session check` inside qlyx to validate the saved session. Missing or expired
 credentials trigger the interactive browser flow unless `--unattended` is set.
+On startup, qlyx completes this validation before rendering the chat header and
+input. The chat interface only becomes available after authentication succeeds.
 
 ## Model providers
 

@@ -158,17 +158,15 @@ test('chat accepts queued follow-ups, executes real MCP tools, and resumes globa
   assert.match(restored.stdout, new RegExp('Run: ' + rows[0].name));
 });
 
-test('chat remains usable after authentication errors and handles local commands without signing in', { timeout: 15000 }, async t => {
+test('chat remains hidden until startup authentication succeeds', { timeout: 15000 }, async t => {
   const { root, folder, env, catalog } = await fixture(t);
   env.SESSION = path.join(folder, 'missing.json');
   const result = await run(t, ['--root', root], '/continue\nTry a prompt\n/help\n/new\n/mode passive\n/sessions\n/exit\n', { cwd: folder, env });
-  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.code, 1, result.stderr);
   assert.match(result.stdout, /Error: No saved Qwen session/);
-  assert.match(result.stdout, /No task to continue yet/);
-  assert.ok(!result.stdout.includes('There is no agent task to continue'));
-  assert.match(result.stdout, /Ctrl\+C cancels/);
-  assert.match(result.stdout, /Approval: guided → passive/);
-  assert.equal(result.stdout.split('QLYX · coding').length - 1, 1);
+  assert.doesNotMatch(result.stdout, /QLYX · coding/);
+  assert.doesNotMatch(result.stdout, /Type a prompt/);
+  assert.doesNotMatch(result.stdout, /→ you/);
   assert.equal(catalog.list().length, 0);
 });
 

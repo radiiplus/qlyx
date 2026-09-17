@@ -176,7 +176,8 @@ export async function connect({
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
   }
 
-  async function ensure({ interactive = true, timeout = 10 * 60_000 } = {}) {
+  async function ensure({ interactive = true, timeout = 10 * 60_000, signal } = {}) {
+    signal?.throwIfAborted();
     let result = await check();
     // A current browser session takes precedence over an older saved snapshot.
     if (!result.authenticated && config) {
@@ -196,6 +197,7 @@ export async function connect({
     const deadline = Date.now() + timeout;
     let failure;
     while (Date.now() < deadline) {
+      signal?.throwIfAborted();
       if (closed || page.isClosed()) throw new Error('Qwen tab closed before authentication completed.');
       if (new URL(page.url()).origin === origin) {
         try {
