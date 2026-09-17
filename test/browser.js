@@ -33,3 +33,25 @@ test('browser tools attach through debugging, interact, and preserve the origina
     await fs.rm(profile, { recursive: true, force: true, maxRetries: 3 });
   }
 });
+
+test('browser tools support raw CDP pages without Playwright locators', { timeout: 20000 }, async () => {
+  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'browser-raw-'));
+  const server = http.createServer((request, response) => { response.setHeader('content-type', 'text/html'); response.end('<title>Raw fixture</title><input type="hidden" value="ignored"><input placeholder="Name"><button onclick="document.querySelector(\'p\').textContent=\'Hello \'+document.querySelectorAll(\'input\')[1].value">Greet</button><p>Ready</p>'); });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const context = await chromium.launchPersistentContext(profile, { executablePath: process.env.CHROME || '/opt/google/chrome/chrome', headless: true, args: ['--remote-debugging-port=0'] });
+  const connection = { raw: true, contexts: () => [context], close: async () => {} };
+  const tools = browser({ attach: async () => connection });
+  try {
+    const view = await tools.open({ url: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(view.title, 'Raw fixture');
+    await tools.fill({ index: view.controls.find((node) => node.label === 'Name').index, text: 'Ada' });
+    const current = await tools.view();
+    const result = await tools.click({ index: current.controls.find((node) => node.label === 'Greet').index });
+    assert.match(result.text, /Hello Ada/);
+  } finally {
+    await tools.close();
+    await context.close();
+    await new Promise((resolve) => server.close(resolve));
+    await fs.rm(profile, { recursive: true, force: true, maxRetries: 3 });
+  }
+});

@@ -76,6 +76,7 @@ export async function open(endpoint, { timeout = 8000 } = {}) {
     return {
       evaluate,
       url: () => current,
+      async title() { return evaluate(() => document.title); },
       isClosed: () => gone,
       on: () => {},
       async goto(url) { current = url; await call('Page.navigate', { url }, session); return { ok: () => true }; },
