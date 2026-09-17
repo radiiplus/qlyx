@@ -122,7 +122,7 @@ test('browser verification challenges produce an actionable error without resend
     if (url.pathname.endsWith('/new')) return Response.json({ success: true, data: { id: 'chat' } });
     return Response.json({ ret: ['FAIL_SYS_USER_VALIDATE'], data: { url: 'https://example.com/private' } });
   } });
-  await assert.rejects(client.send('hello'), (error) => error.status === 403 && /browser verification/.test(error.message) && !error.message.includes('private'));
+  await assert.rejects(client.send('hello'), (error) => error.status === 403 && error.challenge === true && /browser verification/.test(error.message) && !error.message.includes('private'));
   assert.equal(calls, 3);
 });
 

@@ -44,7 +44,16 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
     }
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   }
-  async function access(signal) {
+  async function access(signal, browser = false) {
+    if (browser && provider === 'qwen') {
+      if (unattended) throw new Error('Qwen browser verification requires an interactive run. Open chat.qwen.ai in Chrome, complete verification, then retry without --unattended.');
+      if (!session) {
+        session = await connect({ location: credentials, log: message => notify({ type: 'notice', message }) });
+        signal.throwIfAborted();
+        await session.ensure({ signal });
+      } else await session.ensure({ signal });
+      await session.page?.bringToFront?.();
+    }
     const transport = provider === 'qwen' && session?.request ? { request: session.request } : {};
     try { client = await create({ provider, location: credentials, timeout, ...transport }); await client.check({ signal }); }
     catch (error) {
@@ -116,7 +125,22 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
       fresh = false;
       if (kind === 'prompt') {
         notify({ type: 'status', message: `${provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} is replying` });
-        const answer = await conversation.send(task, { model, signal });
+        let answer;
+        try { answer = await conversation.send(task, { model, signal }); }
+        catch (error) {
+          if (!error.challenge || provider !== 'qwen' || unattended || signal.aborted) throw error;
+          notify({ type: 'reconnect', message: 'Qwen requested browser verification; retrying through the existing Chrome session.' });
+          await conversation.close(); conversation = undefined;
+          await client?.close?.(); client = await access(signal, true);
+          conversation = await chat({ root, name: id, client, fresh: true, snapshot: false, directory: paths.chats, notes, legacy,
+            log: message => notify({ type: 'notice', message }),
+            record: (state, metadata) => {
+              const key = catalog.chat(root, id, state, { ...metadata, kind });
+              if (!identity) { identity = key; notify({ type: 'session', id: key, run: id, root }); }
+            },
+          });
+          answer = await conversation.send(task, { model, signal });
+        }
         return { status: 'complete', message: answer.text };
       }
       return await run({ task, bridge: connection, location, resume: Boolean(previous), steps, signal, redact, notify, receive, notes,
@@ -133,12 +157,12 @@ export async function runtime({ root = process.cwd(), resume, name, kind = 'agen
         model: async (prompt, { signal, update }) => {
           try { return await conversation.send(prompt, { model, signal, update, thinking: true }); }
           catch (error) {
-            const retryable = error?.status === 401 || error?.code === 'ECONNRESET' || error?.code === 'ETIMEDOUT' || /fetch failed|network|socket|timed out/i.test(error?.message || '');
+            const retryable = !unattended && error?.challenge || error?.status === 401 || error?.code === 'ECONNRESET' || error?.code === 'ETIMEDOUT' || /fetch failed|network|socket|timed out/i.test(error?.message || '');
             if (!retryable || signal?.aborted) throw error;
             notify({ type: 'reconnect', message: `${provider === 'deepseek' ? 'DeepSeek' : 'Qwen'} connection interrupted; validating authentication and reconnecting.` });
             try { await conversation?.close(); await client?.close?.(); } catch {}
             conversation = undefined;
-            client = await access(signal);
+            client = await access(signal, Boolean(error.challenge));
             conversation = await chat({ root, name: id, client, fresh: true, snapshot: kind === 'agent', directory: paths.chats, notes, legacy, log: message => notify({ type: 'notice', message }), record: (state, metadata) => {
               const key = catalog.chat(root, id, state, { ...metadata, kind });
               if (!identity) { identity = key; notify({ type: 'session', id: key, run: id, root }); }

@@ -36,7 +36,9 @@ function network(error, url, timeout, redact) {
 }
 function validate(body, options) {
   if (Array.isArray(body?.ret) && body.ret.some((code) => /USER_VALIDATE|RGV587/.test(code))) {
-    throw new Failure('Qwen requires browser verification. Open chat.qwen.ai in your existing Chrome, complete any verification, then run npx qlyx and use /session check.', 403);
+    const error = new Failure('Qwen requires browser verification for this API request. Complete it in the existing Chrome tab, then retry; /session check only confirms account authentication.', 403);
+    error.challenge = true;
+    throw error;
   }
   if (body?.success === false || body?.error) throw failure(body, 'Qwen rejected the request.', options);
 }

@@ -129,7 +129,7 @@ export function activity({ output = process.stdout, plain = !output.isTTY, statu
     status(''); row(cancelled ? 'CANCELLED' : 'FAILURE', '', cancelled ? '!' : '×', 'failure');
     if (active) detail(`${category(active)} · ${target(active)}`);
     detail(message);
-    if (message.includes('Qwen returned HTTP 403')) detail('Open chat.qwen.ai in the existing Chrome, complete verification, then use /session check.');
+    if (message.includes('Qwen returned HTTP 403')) detail('Complete the browser verification in the existing Chrome tab, then retry.');
     if (checkpoint) detail(`Saved checkpoint: ${checkpoint}`);
     active = undefined; ongoing.clear();
   }
