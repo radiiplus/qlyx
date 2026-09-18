@@ -38,13 +38,13 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
   const dim = value => colored ? `\x1b[90m${value}\x1b[0m` : value;
   const amber = value => colored ? `\x1b[38;5;180m${value}\x1b[0m` : value;
   const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-  let tick = 0, options = [], index = 0, query = '', hidden = '';
+  let tick = 0, options = [], index = 0, query = '', hidden = '', pasting = false, pasted = '';
   function dropdown(width) {
     const value = reader.line || '';
     if (picker) {
       options = picker.source().filter(row => clean(`${row.title || row.id} ${row.description || ''}`).toLowerCase().includes(value.toLowerCase())).map(row => ({ value: row.title || row.id, description: row.description || row.status || '', row }));
     } else {
-      if (approval || !value.startsWith('/') || value.startsWith('//') || value === hidden) { options = []; return []; }
+      if (approval || value.includes('\n') || !value.startsWith('/') || value.startsWith('//') || value === hidden) { options = []; return []; }
       if (query !== value) { query = value; index = 0; }
       options = suggest(value);
     }
@@ -204,6 +204,17 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     draw();
   }); }
   function key(value, key = {}) { return atomic(() => {
+    if (key.name === 'paste-start') { pasting = true; pasted = ''; return; }
+    if (pasting) {
+      if (key.name === 'paste-end') {
+        pasting = false;
+        insert(pasted.replace(/\r\n?/g, '\n'));
+        pasted = '';
+        prompt();
+      } else if (typeof value === 'string') pasted += value;
+      else if (typeof key.sequence === 'string') pasted += key.sequence;
+      return;
+    }
     if (key.ctrl && key.name === 'c') { if (picker && !pane) settle(); else if (pane?.rows) dismiss(); else interrupt(); return; }
     if (key.ctrl && key.name === 't') { view('transcript', transcript); return; }
     if (key.ctrl && key.name === 'o') { const selected = inspect(); view('output', typeof selected === 'function' ? selected : inspect); return; }
@@ -225,6 +236,8 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     if (approval && key.name === 'escape') {
       const resolve = approval; approval = undefined; resolve(false); prompt(); return;
     }
+    const newline = !approval && !picker && ((key.shift || key.meta) && ['return', 'enter'].includes(key.name) || /^\x1b\[13;2u$/.test(key.sequence || ''));
+    if (newline) { insert('\n'); options = []; hidden = ''; query = ''; prompt(); return; }
     if (picker && ['return', 'enter'].includes(key.name)) { if (options[index]) settle(options[index].row); return; }
     if (options.length && (!approval || picker)) {
       if (key.name === 'escape') {
@@ -241,6 +254,31 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
         if (key.name === 'tab') { prompt(); return; }
         source.emit('keypress', '\r', { name: 'return', sequence: '\r' }); prompt(); return;
       }
+    }
+    if (!approval && !picker && reader.line.includes('\n')) {
+      const line = reader.line, cursor = reader.cursor;
+      const start = line.lastIndexOf('\n', cursor - 1) + 1;
+      const end = line.indexOf('\n', cursor);
+      if (key.name === 'left' && cursor > 0) reader.cursor -= [...line.slice(0, cursor)].at(-1).length;
+      else if (key.name === 'right' && cursor < line.length) reader.cursor += [...line.slice(cursor)][0].length;
+      else if (key.name === 'home' || key.ctrl && key.name === 'a') reader.cursor = start;
+      else if (key.name === 'end' || key.ctrl && key.name === 'e') reader.cursor = end < 0 ? line.length : end;
+      else if (key.name === 'up' && start > 0) {
+        const previous = line.lastIndexOf('\n', start - 2) + 1;
+        reader.cursor = Math.min(previous + cursor - start, start - 1);
+      } else if (key.name === 'down' && end >= 0) {
+        const next = end + 1, nextend = line.indexOf('\n', next);
+        reader.cursor = Math.min(next + cursor - start, nextend < 0 ? line.length : nextend);
+      } else if (key.name === 'backspace' && cursor > 0) {
+        const size = [...line.slice(0, cursor)].at(-1).length;
+        reader.line = line.slice(0, cursor - size) + line.slice(cursor); reader.cursor -= size;
+      } else if (key.name === 'delete' && cursor < line.length) {
+        const size = [...line.slice(cursor)][0].length;
+        reader.line = line.slice(0, cursor) + line.slice(cursor + size);
+      } else if (typeof value === 'string' && !key.ctrl && !key.meta && !['return', 'enter'].includes(key.name)) insert(value);
+      else source.emit('keypress', value, key);
+      if (reader.line !== hidden) hidden = '';
+      prompt(); return;
     }
     source.emit('keypress', value, key);
     if (reader.line !== hidden) hidden = '';
@@ -275,6 +313,11 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     Object.assign(context, value);
     place = [context.workspace, context.model || 'default', context.mode, context.plan, context.tasks ? `${context.tasks} running` : '', context.queue ? `${context.queue} queued` : ''].filter(Boolean).map(value => { const text = clean(value); return text.length > 22 ? text.slice(0, 21) + '…' : text; }).join(' · ');
     update();
+  }
+  function insert(value) {
+    const line = reader.line || '', cursor = reader.cursor || 0;
+    reader.line = line.slice(0, cursor) + value + line.slice(cursor);
+    reader.cursor = cursor + value.length;
   }
   function fill(value) { reader.line = value; reader.cursor = value.length; hidden = ''; query = ''; index = 0; prompt(); }
   function confirm(value) { write(dim('  ✓ ' + wrap(clean(value).replace(/\s+/g, ' '), tty ? Math.max(8, (output.columns || 80) - 5) : 10000)[0]) + '\n'); }
@@ -338,8 +381,9 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     });
   }
   function close() {
-    atomic(() => { clearInterval(timer); clearTimeout(refresh); settle(); dismiss(); flush(); erase(); reader.close(); });
+    atomic(() => { clearInterval(timer); clearTimeout(refresh); settle(); dismiss(); flush(); erase(); if (tty) emit('\x1b[?2004l'); reader.close(); });
     if (tty) { input.removeListener('keypress', key); input.removeListener('end', end); output.removeListener('resize', resize); input.setRawMode?.(Boolean(raw)); input.pause(); }
   }
+  if (tty) emit('\x1b[?2004h');
   return { read, take, show, context: indicate, fill, confirm, approve, select, view, update, status, write, close, tty, output: { write, isTTY: tty, get columns() { return output.columns; } } };
 }

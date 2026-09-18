@@ -69,6 +69,36 @@ test('terminal preserves partially typed prompts through activity redraws and ke
   input.end();
   assert.equal(await ui.read(), null);
 });
+
+test('terminal composes and edits multiline prompts without submitting early', async t => {
+  const input = new Stream(), output = new Stream();
+  input.isTTY = output.isTTY = true; input.setRawMode = () => {};
+  output.columns = 50; output.rows = 20; output.resume();
+  const ui = terminal({ input, output }); t.after(() => ui.close());
+  const pending = ui.read(); let submitted = false;
+  pending.then(() => { submitted = true; });
+  input.write('first line');
+  input.emit('keypress', undefined, { name: 'return', sequence: '\x1b\r', meta: true, ctrl: false, shift: false });
+  input.write('second line');
+  await Promise.resolve();
+  assert.equal(submitted, false);
+  input.write('\x1b[D!\r');
+  assert.equal(await pending, 'first line\nsecond lin!e');
+});
+
+test('terminal keeps a bracketed multiline paste in one prompt', async t => {
+  const input = new Stream(), output = new Stream();
+  input.isTTY = output.isTTY = true; input.setRawMode = () => {};
+  output.columns = 50; output.rows = 20; output.resume();
+  const ui = terminal({ input, output }); t.after(() => ui.close());
+  const pending = ui.read(); let submitted = false;
+  pending.then(() => { submitted = true; });
+  input.write('\x1b[200~const one = 1;\nconst two = 2;\x1b[201~');
+  await Promise.resolve();
+  assert.equal(submitted, false);
+  input.write('\r');
+  assert.equal(await pending, 'const one = 1;\nconst two = 2;');
+});
 async function fixture(t) {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-'));
   const root = path.join(folder, 'workspace');

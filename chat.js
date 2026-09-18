@@ -13,8 +13,9 @@ import { skills } from './module/skills.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-const help = `Send a prompt and press Enter. Follow-up prompts reuse this session.
-End a line with a backslash to compose a multiline prompt.
+const help = `Send a prompt with Enter. Follow-up prompts reuse this session.
+Use Shift+Enter or Alt+Enter for a new line. Multiline pasted text stays in one prompt.
+In plain input, end a line with a backslash to continue the prompt.
 
 / groups model, approval, plan, session, and inspection choices inline.
 Planning starts automatically for substantial tasks; /plan only inspects it.
@@ -177,7 +178,7 @@ try {
     }
     if (values.resume && values.resume !== 'latest') await resume(values.resume);
     else await open({ root: values.root, resume: values.resume, fresh: values.new }, Boolean(values.resume));
-    feed.write('Type a prompt · / options · Ctrl+T transcript · Ctrl+O output\n');
+    feed.write('Type a prompt · Shift+Enter newline · / options · Ctrl+T transcript · Ctrl+O output\n');
     let initial = positionals.join(' '), draft = '';
     if (initial && ui.tty) feed.write(`› ${initial}\n`);
     ui.show();

@@ -256,7 +256,9 @@ To send a prompt that begins with a literal slash, prefix it with another slash:
 //explain this route syntax
 ```
 
-End a line with `\` to compose multiline input.
+Use `Shift+Enter` or `Alt+Enter` to add a line without sending the prompt. Pasting
+multiple lines also keeps them together as one prompt. For piped or plain input,
+end a line with `\` to continue the prompt on the next line.
 
 ## Keyboard controls
 
@@ -266,6 +268,7 @@ End a line with `\` to compose multiline input.
 | `Ctrl+O` | Enter or leave the current execution output. |
 | `Escape` | Return from a viewer, close a menu, or skip a pending approval. |
 | `Enter` | Submit input, choose a menu item, or approve a pending action. |
+| `Shift+Enter` / `Alt+Enter` | Add a new line to the current prompt. |
 | `Ctrl+C` | Cancel the active turn; when idle, exit qlyx. |
 | `Up` / `Down` | Navigate input history, menu choices, or viewer lines. |
 | `Page Up` / `Page Down` | Scroll transcript and output viewers. |
