@@ -173,6 +173,27 @@ test('agent removes irrelevant search snippets and recovers once from provider i
   assert.equal(turn, 3);
 });
 
+test('agent compacts oversized model context while preserving full checkpoint history', async t => {
+  const { root, location } = await fixture(t);
+  const history = Array.from({ length: 12 }, (_, index) => ({ role: 'tool', tool: 'local.browse', error: false,
+    content: `${'x'.repeat(19950)} ${index === 0 ? 'old-marker' : index === 11 ? 'latest-marker' : index}` }));
+  await fs.mkdir(path.dirname(location), { recursive: true });
+  await fs.writeFile(location, JSON.stringify({ schema: 1, id: 'fixture', root, task: 'Continue the research.', status: 'context', plan: ['[~] Research'], history, steps: 12, pending: null }));
+  const result = await run({ task: '', bridge: { root, tools: [], call: async () => ({ error: false, content: '{}' }) }, location, resume: true,
+    model: async prompt => {
+      assert.ok(prompt.length < 180000);
+      assert.match(prompt, /latest-marker/);
+      assert.doesNotMatch(prompt, /old-marker/);
+      assert.match(prompt, /Context window management/);
+      return { text: '{"action":"final","message":"Research continued."}' };
+    },
+  });
+  assert.equal(result.status, 'complete');
+  const saved = JSON.parse(await fs.readFile(location, 'utf8'));
+  assert.match(saved.history[0].content, /old-marker/);
+  assert.ok(saved.history[0].content.length > 19000);
+});
+
 test('batch actions execute independent MCP tools concurrently and return each result', async t => {
   const { root, location } = await fixture(t);
   const starts = [], ends = [];

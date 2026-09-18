@@ -27,7 +27,7 @@ test('captured output beyond model excerpt survives compact previews and reopeni
   feed.intent('Print evidence');
   let turn = 0;
   const result = await run({ task: 'Print evidence', bridge: tools, location: path.join(root, '.agent', 'fixture.json'), notify: feed.notify,
-    model: async () => ({ text: JSON.stringify(turn++ ? { action: 'final', message: 'Execution finished.', learned: ['The fixture prints numbered lines.'], limitations: ['Fixture evidence only.'] } : { action: 'tool', summary: 'Verify output retention', why: 'Compare full output against the compact preview.', evidence: ['Requested terminal output'], tool: 'local.run', arguments: { command: process.execPath, args: ['-e', 'for(let i=0;i<3000;i++)console.log("evidence "+i);console.error("stderr marker");'] } }) }),
+    model: async () => ({ text: JSON.stringify(turn++ ? { action: 'final', message: 'Execution finished.', learned: ['The fixture prints numbered lines.'], limitations: ['Fixture evidence only.'] } : { action: 'tool', summary: 'Verify output retention', why: 'Compare full output against the compact preview.', evidence: ['Requested terminal output'], tool: 'local.run', arguments: { command: process.execPath, args: ['-e', 'process.stdout.write(Array.from({length:3000},(_,i)=>"evidence "+i).join("\\n"));console.error("stderr marker");'] } }) }),
   });
   feed.complete(result);
   assert.equal(result.status, 'complete');
