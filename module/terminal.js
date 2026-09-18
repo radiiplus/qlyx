@@ -1,18 +1,13 @@
 import * as readline from 'node:readline';
-import { PassThrough as Stream } from 'node:stream';
 import { clean } from './activity.js';
 import { syntax, language, shell } from './style.js';
 
 export function terminal({ input = process.stdin, output = process.stdout, plain = false, interrupt = () => {}, command = () => false,
   inspect = () => [], transcript = () => [], queued = () => {}, suggest = () => [] } = {}) {
   const tty = Boolean(input.isTTY && output.isTTY);
-  const source = tty ? new Stream() : input;
-  if (tty) { source.isTTY = true; source.setRawMode = () => {}; }
-  // Readline owns editing and history; the footer owns all visible rendering.
-  const sink = tty ? new Stream() : output;
-  if (tty) sink.resume();
-  const reader = readline.createInterface({ input: source, output: sink, terminal: tty, historySize: 200, removeHistoryDuplicates: true });
-  reader.setPrompt('');
+  // Interactive editing is kept local so embedded newlines never enter readline's
+  // version-dependent terminal state. Readline is only needed for piped input.
+  const reader = tty ? { line: '', cursor: 0, history: [] } : readline.createInterface({ input, output, terminal: false });
   const queue = [], deferred = [];
   let painted = false, offset = 0, picker;
   let footer = [], column = 0, columns = 0, buffer;
@@ -38,7 +33,7 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
   const dim = value => colored ? `\x1b[90m${value}\x1b[0m` : value;
   const amber = value => colored ? `\x1b[38;5;180m${value}\x1b[0m` : value;
   const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-  let tick = 0, options = [], index = 0, query = '', hidden = '', pasting = false, pasted = '';
+  let tick = 0, options = [], index = 0, query = '', hidden = '', pasting = false, pasted = '', history = -1, saved = '';
   function dropdown(width) {
     const value = reader.line || '';
     if (picker) {
@@ -252,42 +247,46 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
         const selected = key.name === 'tab' ? item.value : item.command || item.value;
         reader.line = selected; reader.cursor = selected.length; hidden = selected; options = [];
         if (key.name === 'tab') { prompt(); return; }
-        source.emit('keypress', '\r', { name: 'return', sequence: '\r' }); prompt(); return;
+        submit(); prompt(); return;
       }
     }
-    if (!approval && !picker && reader.line.includes('\n')) {
-      const line = reader.line, cursor = reader.cursor;
-      const start = line.lastIndexOf('\n', cursor - 1) + 1;
-      const end = line.indexOf('\n', cursor);
-      if (key.name === 'left' && cursor > 0) reader.cursor -= [...line.slice(0, cursor)].at(-1).length;
-      else if (key.name === 'right' && cursor < line.length) reader.cursor += [...line.slice(cursor)][0].length;
-      else if (key.name === 'home' || key.ctrl && key.name === 'a') reader.cursor = start;
-      else if (key.name === 'end' || key.ctrl && key.name === 'e') reader.cursor = end < 0 ? line.length : end;
-      else if (key.name === 'up' && start > 0) {
-        const previous = line.lastIndexOf('\n', start - 2) + 1;
-        reader.cursor = Math.min(previous + cursor - start, start - 1);
-      } else if (key.name === 'down' && end >= 0) {
-        const next = end + 1, nextend = line.indexOf('\n', next);
-        reader.cursor = Math.min(next + cursor - start, nextend < 0 ? line.length : nextend);
-      } else if (key.name === 'backspace' && cursor > 0) {
-        const size = [...line.slice(0, cursor)].at(-1).length;
-        reader.line = line.slice(0, cursor - size) + line.slice(cursor); reader.cursor -= size;
-      } else if (key.name === 'delete' && cursor < line.length) {
-        const size = [...line.slice(cursor)][0].length;
-        reader.line = line.slice(0, cursor) + line.slice(cursor + size);
-      } else if (typeof value === 'string' && !key.ctrl && !key.meta && !['return', 'enter'].includes(key.name)) insert(value);
-      else source.emit('keypress', value, key);
-      if (reader.line !== hidden) hidden = '';
-      prompt(); return;
-    }
-    source.emit('keypress', value, key);
+    const line = reader.line, cursor = reader.cursor;
+    const start = line.lastIndexOf('\n', cursor - 1) + 1;
+    const end = line.indexOf('\n', cursor);
+    let handled = true;
+    if (['return', 'enter'].includes(key.name)) submit();
+    else if (key.name === 'left' && cursor > 0) reader.cursor -= [...line.slice(0, cursor)].at(-1).length;
+    else if (key.name === 'right' && cursor < line.length) reader.cursor += [...line.slice(cursor)][0].length;
+    else if (key.name === 'home' || key.ctrl && key.name === 'a') reader.cursor = start;
+    else if (key.name === 'end' || key.ctrl && key.name === 'e') reader.cursor = end < 0 ? line.length : end;
+    else if (key.name === 'up' && start > 0) {
+      const previous = line.lastIndexOf('\n', start - 2) + 1;
+      reader.cursor = Math.min(previous + cursor - start, start - 1);
+    } else if (key.name === 'down' && end >= 0) {
+      const next = end + 1, nextend = line.indexOf('\n', next);
+      reader.cursor = Math.min(next + cursor - start, nextend < 0 ? line.length : nextend);
+    } else if (['up', 'down'].includes(key.name)) recall(key.name === 'up' ? 1 : -1);
+    else if (key.name === 'backspace' && cursor > 0) {
+      const size = [...line.slice(0, cursor)].at(-1).length;
+      reader.line = line.slice(0, cursor - size) + line.slice(cursor); reader.cursor -= size;
+    } else if (key.name === 'delete' && cursor < line.length) {
+      const size = [...line.slice(cursor)][0].length;
+      reader.line = line.slice(0, cursor) + line.slice(cursor + size);
+    } else if (key.ctrl && key.name === 'u') { reader.line = line.slice(cursor); reader.cursor = 0; }
+    else if (key.ctrl && key.name === 'k') reader.line = line.slice(0, cursor);
+    else if (key.ctrl && key.name === 'w' && cursor > 0) {
+      const before = line.slice(0, cursor), cut = before.search(/\S+\s*$/);
+      reader.line = before.slice(0, Math.max(0, cut)) + line.slice(cursor); reader.cursor = Math.max(0, cut);
+    } else if (typeof value === 'string' && !key.ctrl && !key.meta && !['return', 'enter'].includes(key.name)) insert(value);
+    else handled = false;
+    if (handled && !['up', 'down'].includes(key.name)) history = -1;
     if (reader.line !== hidden) hidden = '';
     prompt();
   }); }
-  function end() { if (tty) source.end(); }
+  function end() { finish(); }
   function resize() { if (pane) draw(); else prompt(); }
   if (tty) { readline.emitKeypressEvents(input); input.on('keypress', key); input.on('end', end); input.setRawMode?.(true); input.resume(); output.on('resize', resize); }
-  reader.on('line', line => {
+  function accept(line) {
     options = []; hidden = ''; query = '';
     if (command(line)) return;
     if (approval) {
@@ -305,9 +304,12 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     if (waiting) { const resolve = waiting; waiting = undefined; resolve(line); }
     else { queue.push(line); queued([...queue]); }
     prompt();
-  });
-  reader.on('SIGINT', interrupt);
-  reader.on('close', () => { ended = true; clearInterval(timer); settle(); dismiss(); waiting?.(null); waiting = undefined; approval?.(false); approval = undefined; });
+  }
+  function finish() {
+    if (ended) return;
+    ended = true; clearInterval(timer); settle(); dismiss(); waiting?.(null); waiting = undefined; approval?.(false); approval = undefined;
+  }
+  if (!tty) { reader.on('line', accept); reader.on('SIGINT', interrupt); reader.on('close', finish); }
   function show() { shown = true; prompt(); }
   function indicate(value) {
     Object.assign(context, value);
@@ -318,6 +320,20 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     const line = reader.line || '', cursor = reader.cursor || 0;
     reader.line = line.slice(0, cursor) + value + line.slice(cursor);
     reader.cursor = cursor + value.length;
+  }
+  function submit() {
+    const line = reader.line;
+    if (line && reader.history[0] !== line) reader.history.unshift(line);
+    if (reader.history.length > 200) reader.history.length = 200;
+    reader.line = ''; reader.cursor = 0; history = -1; saved = '';
+    accept(line);
+  }
+  function recall(change) {
+    if (!reader.history.length) return;
+    if (history < 0) saved = reader.line;
+    history = Math.max(-1, Math.min(reader.history.length - 1, history + change));
+    const value = history < 0 ? saved : reader.history[history];
+    reader.line = value; reader.cursor = value.length;
   }
   function fill(value) { reader.line = value; reader.cursor = value.length; hidden = ''; query = ''; index = 0; prompt(); }
   function confirm(value) { write(dim('  ✓ ' + wrap(clean(value).replace(/\s+/g, ' '), tty ? Math.max(8, (output.columns || 80) - 5) : 10000)[0]) + '\n'); }
@@ -381,7 +397,7 @@ export function terminal({ input = process.stdin, output = process.stdout, plain
     });
   }
   function close() {
-    atomic(() => { clearInterval(timer); clearTimeout(refresh); settle(); dismiss(); flush(); erase(); if (tty) emit('\x1b[?2004l'); reader.close(); });
+    atomic(() => { clearInterval(timer); clearTimeout(refresh); settle(); dismiss(); flush(); erase(); if (tty) { emit('\x1b[?2004l'); finish(); } else reader.close(); });
     if (tty) { input.removeListener('keypress', key); input.removeListener('end', end); output.removeListener('resize', resize); input.setRawMode?.(Boolean(raw)); input.pause(); }
   }
   if (tty) emit('\x1b[?2004h');
