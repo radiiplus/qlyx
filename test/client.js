@@ -126,6 +126,14 @@ test('browser verification challenges produce an actionable error without resend
   assert.equal(calls, 3);
 });
 
+test('content inspection failures are classified for agent recovery', async () => {
+  const body = new ReadableStream({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('data: {"success":false,"code":"data_inspection_failed"}\n\n'));
+    controller.close();
+  } });
+  await assert.rejects(answer(body), error => error.code === 'data_inspection_failed' && error.inspection === true);
+});
+
 test('cancellation reaches HTTP requests and does not retry', async (t) => {
   const controller = new AbortController();
   controller.abort();

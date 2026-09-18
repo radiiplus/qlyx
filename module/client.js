@@ -16,6 +16,7 @@ function failure(body, fallback, { status, route, redact = text => text } = {}) 
   const safe = value => strip(redact(String(value))).replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 500);
   const error = new Failure(`${fallback}${detail ? ' ' + safe(detail) : ''}${route ? ' (' + route + ')' : ''}`, status);
   if (typeof code === 'string' || typeof code === 'number') error.code = safe(code).slice(0, 80);
+  if (error.code === 'data_inspection_failed') error.inspection = true;
   error.route = route;
   if (error.code) error.message += ` [${error.code}]`;
   return error;

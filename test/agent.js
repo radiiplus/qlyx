@@ -148,6 +148,31 @@ test('native tool errors recover through explicit text transport guidance withou
   assert.equal(calls, 1);
 });
 
+test('agent removes irrelevant search snippets and recovers once from provider inspection', async t => {
+  const { root, location } = await fixture(t);
+  let turn = 0;
+  const result = await run({ task: 'Research the relevant source.', location,
+    bridge: { root, tools: [], call: async () => ({ error: false, content: JSON.stringify({ query: 'site:github.com solidity delegatecall', results: [
+      { title: 'Relevant Solidity source', url: 'https://github.com/example/source', description: 'delegatecall implementation' },
+      { title: 'blocked marker', url: 'https://irrelevant.example/', description: 'unrelated blocked marker' },
+    ] }) }) },
+    model: async prompt => {
+      turn++;
+      if (turn === 1) return action('local.web', { query: 'site:github.com solidity delegatecall' });
+      if (turn === 2) {
+        assert.match(prompt, /Relevant Solidity source/);
+        assert.doesNotMatch(prompt, /blocked marker/);
+        const error = new Error('inspection'); error.inspection = true; throw error;
+      }
+      assert.match(prompt, /Raw local\.web output omitted/);
+      assert.doesNotMatch(prompt, /Relevant Solidity source|blocked marker/);
+      return { text: '{"action":"final","message":"Research recovered."}' };
+    },
+  });
+  assert.equal(result.status, 'complete');
+  assert.equal(turn, 3);
+});
+
 test('batch actions execute independent MCP tools concurrently and return each result', async t => {
   const { root, location } = await fixture(t);
   const starts = [], ends = [];
