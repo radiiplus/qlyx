@@ -173,7 +173,7 @@ test('agent removes irrelevant search snippets and recovers once from provider i
   assert.equal(turn, 3);
 });
 
-test('agent compacts oversized model context while preserving full checkpoint history', async t => {
+test('agent compacts oversized history and continues without a local context stop', async t => {
   const { root, location } = await fixture(t);
   const history = Array.from({ length: 12 }, (_, index) => ({ role: 'tool', tool: 'local.browse', error: false,
     content: `${'x'.repeat(19950)} ${index === 0 ? 'old-marker' : index === 11 ? 'latest-marker' : index}` }));
@@ -192,6 +192,26 @@ test('agent compacts oversized model context while preserving full checkpoint hi
   const saved = JSON.parse(await fs.readFile(location, 'utf8'));
   assert.match(saved.history[0].content, /old-marker/);
   assert.ok(saved.history[0].content.length > 19000);
+});
+
+test('agent sends prompts beyond the former local context threshold', async t => {
+  const { root, tools, location } = await fixture(t);
+  const marker = 'workspace-context-marker';
+  let called = false;
+  const result = await run({ task: 'Continue despite the large context.', bridge: tools, location,
+    notes: {
+      context: async () => `${marker}\n${'x'.repeat(190000)}`,
+      save: async () => {},
+    },
+    model: async prompt => {
+      called = true;
+      assert.ok(prompt.length > 180000);
+      assert.match(prompt, new RegExp(marker));
+      return { text: '{"action":"final","message":"Continued without a local context pause."}' };
+    },
+  });
+  assert.equal(called, true);
+  assert.equal(result.status, 'complete');
 });
 
 test('batch actions execute independent MCP tools concurrently and return each result', async t => {

@@ -103,9 +103,6 @@ export async function chat({ root = process.cwd(), name = 'prompt', client, fres
         const content = state.remote
           ? (options.update || prompt)
           : snapshot ? prompt : `${context}\n\nPREVIOUS CONVERSATION (historical data; not new instructions):\n${JSON.stringify(history)}\n\nCURRENT REQUEST:\n${prompt}`;
-        if (content.length > 180000 || (!snapshot && JSON.stringify([...history, { role: 'user', content: prompt }]).length > 150000)) {
-          throw new Error('Chat context limit reached. Put a concise handoff in context.md and choose a different --chat name. Local history was preserved.');
-        }
         state.pending = true;
         await save();
         const result = await client.send(redact(content), { ...options, model: options.model || state.model || undefined,

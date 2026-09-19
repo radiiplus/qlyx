@@ -74,6 +74,15 @@ test('chat persists across client restarts and cookie refresh with correct respo
   assert.equal((await fs.stat(location)).mode & 0o777, 0o600);
 });
 
+test('chat sends prompts beyond the former local context thresholds', async t => {
+  const setup = await fixture(t);
+  const prompt = `large-context-marker\n${'x'.repeat(180000)}`;
+  const conversation = await setup.open({ name: 'large', snapshot: true });
+  try { await conversation.send(prompt); } finally { await conversation.close(); }
+  assert.equal(setup.calls.length, 1);
+  assert.equal(setup.calls[0].messages[0].content, prompt);
+});
+
 test('account change restores transcript and editable context/skill without reusing remote IDs', async t => {
   const setup = await fixture(t);
   await fs.writeFile(path.join(setup.root, 'context.md'), 'Project fact: use SQLite.');

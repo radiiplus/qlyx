@@ -1,6 +1,6 @@
 {
   "name": "@radiiplus/qlyx",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "description": "A terminal coding agent with Qwen and DeepSeek, local tools, browser control, and resumable sessions.",
   "license": "ISC",
   "type": "module",
